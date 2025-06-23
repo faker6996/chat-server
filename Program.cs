@@ -1,0 +1,156 @@
+using ChatServer.SignalR.Hubs;
+using ChatServer.Services;
+using ChatServer.SignalR;
+using Microsoft.AspNetCore.SignalR;
+using RabbitMQ.Client;
+using ChatServer.Configs;
+using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ===== 1. Service registrations =====
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();                // built-in OpenAPI (ASP.NET 9)
+
+
+builder.Services.AddAuthentication(options =>
+{
+    // Đặt scheme xác thực mặc định là JwtBearer
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Đây là phần cấu hình để server xác thực token
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        // Kiểm tra nhà phát hành (Issuer)
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"], // Lấy từ appsettings.json
+
+        // Kiểm tra bên nhận (Audience)
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["Jwt:Audience"], // Lấy từ appsettings.json
+
+        // Kiểm tra thời gian sống của token
+        ValidateLifetime = true,
+
+        // Kiểm tra và xác thực chữ ký của token
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!)),
+
+        // Yêu cầu token phải có thời gian hết hạn
+        RequireExpirationTime = true,
+
+        // Không bù trừ thời gian khi kiểm tra token hết hạn
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // ✨ PHẦN QUAN TRỌNG NHẤT: Đọc token từ cookie
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            // Cố gắng đọc token từ cookie có tên là "access_token"
+            // Tên này phải khớp với tên cookie bạn đặt ở phía Next.js
+            context.Request.Cookies.TryGetValue("access_token", out var token);
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                context.Token = token;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
+});
+
+builder.Services.AddCors(opts =>
+{
+    opts.AddPolicy("AllowNextApp", policy =>
+    {
+        // 1. Chỉ định chính xác nguồn gốc của Next.js app
+        //    Mặc định Next.js dev server chạy trên port 3000
+        policy.WithOrigins("http://localhost:3000")
+
+         // 2. Cho phép mọi header và method như cũ để linh hoạt
+         .AllowAnyHeader()
+         .AllowAnyMethod()
+
+         // 3. BẮT BUỘC: Cho phép trình duyệt gửi kèm cookie và các thông tin xác thực khác
+         .AllowCredentials();
+    });
+});
+builder.Services.AddSignalR();
+
+builder.Services
+       .AddOptions<RabbitMQOptions>()
+       .Bind(builder.Configuration.GetSection("RabbitMQ"))
+       .ValidateDataAnnotations();   // tùy chọn
+
+// RabbitMQ 7.x – tạo kết nối singleton
+builder.Services.AddSingleton<IConnection>(sp =>
+{
+    var opts = sp.GetRequiredService<IOptions<RabbitMQOptions>>().Value;
+
+    var factory = new ConnectionFactory
+    {
+        HostName = opts.HostName,
+        UserName = opts.UserName,
+        Password = opts.Password
+    };
+
+    // singleton cần sync
+    return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+});
+
+builder.Services.AddHostedService<RabbitMQConsumerService>();
+builder.Services.AddSingleton<IUserIdProvider, NameUserIdProvider>();
+
+// ===== 2. Build app =====
+var app = builder.Build();
+
+// ===== 3. Middleware / pipeline =====
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();         // /openapi.json + Swagger UI tích hợp
+}
+
+app.UseHttpsRedirection();
+app.UseCors("AllowNextApp");
+app.UseAuthentication();
+app.UseAuthorization();
+
+// ===== 4. Routing =====
+app.MapControllers();
+app.MapHub<ChatHub>("/chathub");
+
+// demo endpoint
+var summaries = new[]
+{
+    "Freezing","Bracing","Chilly","Cool","Mild",
+    "Warm","Balmy","Hot","Sweltering","Scorching"
+};
+
+app.MapGet("/weatherforecast", () =>
+{
+    var forecast = Enumerable.Range(1, 5).Select(index =>
+        new WeatherForecast(
+            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+            Random.Shared.Next(-20, 55),
+            summaries[Random.Shared.Next(summaries.Length)]
+        )).ToArray();
+    return forecast;
+})
+.WithName("GetWeatherForecast");
+
+app.Run();
+
+// ===== 5. Record type =====
+record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+{
+    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+}
