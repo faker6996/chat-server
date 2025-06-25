@@ -1,0 +1,91 @@
+# ## Created by an AI assistant for a .NET 9 project ##
+# This file ignores build artifacts, user-specific files, and sensitive data.
+
+# ############ #
+# ## General ##
+# ############ #
+*.swp
+*~
+*.DS_Store
+*.AppleDouble
+._*
+
+# ####################### #
+# ## .NET Build output ##
+# ####################### #
+# Folders for compiled binaries and intermediate files
+[Bb]in/
+[Oo]bj/
+
+# ################################# #
+# ## IDE / Editor Configuration ##
+# ################################# #
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.rsuser
+
+# Visual Studio Code (user-specific settings)
+.vscode/
+
+# ######################### #
+# ## Project Specific ##
+# ######################### #
+# User-specific launch settings.
+Properties/launchSettings.json
+
+# Roslyn code analysis
+*.ruleset
+
+# ################## #
+# ## Web Projects ##
+# ################## #
+# Compiled front-end assets (if using TypeScript, etc.)
+wwwroot/dist/
+wwwroot/lib/
+
+# ############ #
+# ## Secrets ##
+# ############ #
+# Ignore environment-specific settings files that may contain secrets.
+# The base appsettings.json is NOT ignored, as it contains the structure.
+appsettings.*.json
+!appsettings.json
+
+# Ignore other common secret file formats
+*.env
+secrets.json
+
+# #################### #
+# ## NuGet Packages ##
+# #################### #
+# Ignore downloaded packages (restored during build)
+packages/
+*.nupkg
+*.snupkg
+
+# #################### #
+# ## Testing ##
+# #################### #
+# Ignore test results and coverage reports
+TestResults/
+*.trx
+*.cover
+*.coverlet.json
+*.codecov.yml
+
+# ############## #
+# ## Docker ##
+# ############## #
+# Ignore user-specific docker-compose overrides
+docker-compose.override.yml
+docker-compose.vs.debug.yml
+docker-compose.vs.release.yml
+
+# ########## #
+# ## Other ##
+# ########## #
+# Log files
+*.log
+logs/

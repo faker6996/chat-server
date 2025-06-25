@@ -12,35 +12,35 @@ namespace ChatServer.Controllers;
 public class MessagesController : ControllerBase
 {
     private readonly IConnection _conn;
+    private readonly ILogger<MessagesController> _logger;
+
     private const string TopicExchange = "chat_topic_exchange";
 
-    public MessagesController(IConnection conn)
+    public MessagesController(IConnection conn, ILogger<MessagesController> logger)
     {
         _conn = conn;
+        _logger = logger;
     }
 
     [HttpPost]
-    public async Task<IActionResult> PostMessage([FromBody] SendMessageRequest req,
-                                                 CancellationToken ct)
+    public async Task<IActionResult> PostMessage(
+        [FromBody] SendMessageRequest req,
+        CancellationToken ct)          // vẫn nhận token, nhưng không truyền cho RabbitMQ
     {
-        if ((req.MessageType is MESSAGE_TYPE.PRIVATE or MESSAGE_TYPE.GROUP)
-            && string.IsNullOrEmpty(req.TargetId))
+        // 1️⃣ Validate TargetId
+        if ((req.MessageType is MESSAGE_TYPE.PRIVATE or MESSAGE_TYPE.GROUP) &&
+            req.TargetId.HasValue == false)
         {
             return BadRequest("TargetId is required for private or group messages.");
         }
 
-        // 1️⃣  Tạo channel async
-        await using var ch = await _conn.CreateChannelAsync(cancellationToken: ct);
+        // 2️⃣ Tạo channel. Không dùng ct (request-aborted) để tránh cancel giữa chừng.
+        await using var ch = await _conn.CreateChannelAsync();
 
-        // 2️⃣  Đảm bảo exchange tồn tại
-        await ch.ExchangeDeclareAsync(exchange: TopicExchange,
-                                      type: ExchangeType.Topic,
-                                      durable: true,
-                                      autoDelete: false,
-                                      arguments: null,
-                                      cancellationToken: ct);
+        // ⚠️  Exchange/Queue đã được declare 1 lần ở Startup (xem chú thích dưới),
+        //     nên KHÔNG gọi ExchangeDeclareAsync ở đây nữa.
 
-        // 3️⃣  Routing key tuỳ loại tin
+        // 3️⃣ Routing key
         var routingKey = req.MessageType switch
         {
             MESSAGE_TYPE.PRIVATE => $"chat.private.{req.TargetId}",
@@ -48,25 +48,34 @@ public class MessagesController : ControllerBase
             _ => "chat.public.all"
         };
 
-        // 4️⃣  Đóng gói payload
+        // 4️⃣ Đóng gói payload
         var msg = new ChatMessage
         {
             User = req.SenderId,
             Content = req.Content,
             Timestamp = DateTime.UtcNow,
             MessageType = req.MessageType,
-            TargetId = req.TargetId,
-            DisplayName = req.SenderId
+            TargetId = req.TargetId
         };
-
         var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(msg));
 
-        // 5️⃣  Publish async
-        await ch.BasicPublishAsync(exchange: TopicExchange,
-                                   routingKey: routingKey,
-                                   body: body,
-                                   cancellationToken: ct);
+        try
+        {
+            // 5️⃣ Publish – không chuyền RequestAborted
+            await ch.BasicPublishAsync(
+                    exchange: TopicExchange,
+                    routingKey: routingKey,
+                    body: body,
+                    mandatory: false,
+                    cancellationToken: CancellationToken.None);
 
-        return Ok(new { Status = "Message routed successfully." });
+            return Ok(new { status = "Message routed successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RabbitMQ publish failed");
+            // 500 cho lỗi server thực sự (khác 499 client abort)
+            return StatusCode(500, "Failed to route message");
+        }
     }
 }

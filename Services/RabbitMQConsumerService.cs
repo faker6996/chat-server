@@ -39,9 +39,12 @@ namespace ChatServer.Services
                 // v7: Khởi tạo channel bất đồng bộ ở đây
                 _channel = await _rabbitConnection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-                // v7: Tất cả các lệnh Declare/Bind đều chuyển sang bản Async và được await
-                // Đồng thời truyền vào CancellationToken để có thể hủy tác vụ khi cần.
-                await _channel.ExchangeDeclareAsync(exchange: TopicExchangeName, type: ExchangeType.Topic, cancellationToken: stoppingToken);
+                await _channel.ExchangeDeclareAsync(exchange: TopicExchangeName,
+                                      type: ExchangeType.Topic,
+                                      durable: true, // <-- THÊM DÒNG NÀY
+                                      autoDelete: false, // <-- Thêm cả dòng này cho rõ ràng
+                                      arguments: null,
+                                      cancellationToken: stoppingToken);
 
                 await _channel.QueueDeclareAsync(queue: DurableQueueName,
                                               durable: true,
@@ -73,7 +76,12 @@ namespace ChatServer.Services
                         _logger.LogInformation("Received message with routing key: {RoutingKey}", routingKey);
 
                         var keyParts = routingKey.Split('.');
-                        if (keyParts.Length < 2) return;
+                        if (keyParts.Length < 2)
+                        {
+                            // Vẫn nên ack ngay cả khi tin nhắn không hợp lệ để tránh vòng lặp vô hạn
+                            await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
+                            return;
+                        }
 
                         var messageType = keyParts[1];
 
@@ -95,6 +103,7 @@ namespace ChatServer.Services
                                 await _hubContext.Clients.All.SendAsync("ReceiveMessage", message, stoppingToken);
                                 break;
                         }
+                        await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
                     }
                     catch (Exception ex)
                     {
@@ -104,7 +113,7 @@ namespace ChatServer.Services
 
                 // v7: Bắt đầu lắng nghe bất đồng bộ
                 await _channel.BasicConsumeAsync(queue: DurableQueueName,
-                                             autoAck: true,
+                                             autoAck: false,
                                              consumer: consumer,
                                              cancellationToken: stoppingToken);
 

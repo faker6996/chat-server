@@ -8,7 +8,7 @@ namespace ChatServer.Models
         /// <summary>
         /// ID của người gửi.
         /// </summary>
-        public required string User { get; set; }
+        public required int User { get; set; }
 
         /// <summary>
         /// Nội dung tin nhắn.
@@ -29,7 +29,7 @@ namespace ChatServer.Models
         /// <summary>
         /// Đích đến của tin nhắn (UserId hoặc GroupId).
         /// </summary>
-        public string? TargetId { get; set; }
+        public int? TargetId { get; set; }
 
         /// <summary>
         /// Tên hiển thị của người gửi (nếu có).
