@@ -8,32 +8,38 @@ namespace ChatServer.Models
         /// <summary>
         /// ID của người gửi.
         /// </summary>
-        public required int User { get; set; }
+        public required int sender_id { get; set; }
 
         /// <summary>
         /// Nội dung tin nhắn.
         /// </summary>
-        public required string Content { get; set; }
+        public required string content { get; set; }
 
         /// <summary>
         /// Thời gian gửi tin (UTC).
         /// </summary>
-        public DateTime Timestamp { get; set; }
+        public DateTime timestamp { get; set; }
 
 
         /// <summary>
         /// Loại tin nhắn (Private, Group, Public).
         /// </summary>
-        public MESSAGE_TYPE MessageType { get; set; }
+        public MESSAGE_TYPE message_type { get; set; }
 
         /// <summary>
         /// Đích đến của tin nhắn (UserId hoặc GroupId).
         /// </summary>
-        public int? TargetId { get; set; }
+        public int? target_id { get; set; }
 
         /// <summary>
         /// Tên hiển thị của người gửi (nếu có).
         /// </summary>
-        public string? DisplayName { get; set; }
+        public string? display_name { get; set; }
+
+        public DateTime created_at { get; set; }
+
+        public MessageStatus status { get; set; }
     }
+
+    public enum MessageStatus { Sending, Sent, Delivered, Read, Failed }
 }

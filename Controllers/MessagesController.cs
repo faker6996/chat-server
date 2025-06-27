@@ -1,3 +1,5 @@
+// Sửa file Controllers/MessagesController.cs
+
 using ChatServer.Constants;
 using ChatServer.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -7,9 +9,7 @@ using System.Text.Json;
 
 namespace ChatServer.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class MessagesController : ControllerBase
+public class MessagesController : BaseApiController
 {
     private readonly IConnection _conn;
     private readonly ILogger<MessagesController> _logger;
@@ -23,59 +23,60 @@ public class MessagesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> PostMessage(
-        [FromBody] SendMessageRequest req,
-        CancellationToken ct)          // vẫn nhận token, nhưng không truyền cho RabbitMQ
+    public async Task<IActionResult> PostMessage([FromBody] SendMessageRequest req)
     {
         // 1️⃣ Validate TargetId
-        if ((req.MessageType is MESSAGE_TYPE.PRIVATE or MESSAGE_TYPE.GROUP) &&
-            req.TargetId.HasValue == false)
+        if ((req.message_type is MESSAGE_TYPE.PRIVATE or MESSAGE_TYPE.GROUP) &&
+            !req.target_id.HasValue)
         {
-            return BadRequest("TargetId is required for private or group messages.");
+            // SỬ DỤNG HELPER MỚI
+            return BadRequestResponse("TargetId is required for private or group messages.");
         }
 
-        // 2️⃣ Tạo channel. Không dùng ct (request-aborted) để tránh cancel giữa chừng.
+        // 2️⃣ Tạo channel
         await using var ch = await _conn.CreateChannelAsync();
 
-        // ⚠️  Exchange/Queue đã được declare 1 lần ở Startup (xem chú thích dưới),
-        //     nên KHÔNG gọi ExchangeDeclareAsync ở đây nữa.
-
         // 3️⃣ Routing key
-        var routingKey = req.MessageType switch
+        var routingKey = req.message_type switch
         {
-            MESSAGE_TYPE.PRIVATE => $"chat.private.{req.TargetId}",
-            MESSAGE_TYPE.GROUP => $"chat.group.{req.TargetId}",
+            MESSAGE_TYPE.PRIVATE => $"chat.private.{req.target_id}",
+            MESSAGE_TYPE.GROUP => $"chat.group.{req.target_id}",
             _ => "chat.public.all"
         };
 
         // 4️⃣ Đóng gói payload
         var msg = new ChatMessage
         {
-            User = req.SenderId,
-            Content = req.Content,
-            Timestamp = DateTime.UtcNow,
-            MessageType = req.MessageType,
-            TargetId = req.TargetId
+            sender_id = req.sender_id,
+            content = req.content,
+            timestamp = DateTime.UtcNow,
+            message_type = req.message_type,
+            target_id = req.target_id,
+            created_at = DateTime.UtcNow,
+            status = MessageStatus.Sent
         };
         var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(msg));
 
         try
         {
-            // 5️⃣ Publish – không chuyền RequestAborted
+            // 5️⃣ Publish
             await ch.BasicPublishAsync(
                     exchange: TopicExchange,
                     routingKey: routingKey,
-                    body: body,
-                    mandatory: false,
-                    cancellationToken: CancellationToken.None);
+                    body: body);
 
-            return Ok(new { status = "Message routed successfully" });
+            // SỬ DỤNG HELPER MỚI
+            // Dữ liệu trả về là một object ẩn danh, được bọc trong lớp ApiResponse
+            var responseData = new { Status = "Message routed successfully", RoutingKey = routingKey };
+            return OkResponse(responseData, "Message published successfully.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "RabbitMQ publish failed");
-            // 500 cho lỗi server thực sự (khác 499 client abort)
-            return StatusCode(500, "Failed to route message");
+            _logger.LogError(ex, "RabbitMQ publish failed for routing key {routingKey}", routingKey);
+
+            // SỬ DỤNG HELPER MỚI
+            return InternalErrorResponse("Failed to publish message due to a server error.");
         }
     }
+
 }
