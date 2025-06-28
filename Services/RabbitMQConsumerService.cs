@@ -1,33 +1,39 @@
-using Microsoft.AspNetCore.SignalR;
+using ChatServer.Applications; // <-- SỬ DỤNG
+using ChatServer.Models;
+using ChatServer.Repositories.Messenger; // <-- SỬ DỤNG
+using Microsoft.Extensions.DependencyInjection; // <-- SỬ DỤNG cho IServiceScopeFactory
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;
 using System.Text.Json;
-using ChatServer.SignalR.Hubs;
-using ChatServer.Models;
 
 namespace ChatServer.Services
 {
+    /// <summary>
+    /// Service chạy nền để lắng nghe và xử lý tin nhắn từ RabbitMQ.
+    /// Nó hoạt động như một "entry point" phía sau, điều phối việc lưu trữ và thông báo.
+    /// </summary>
     public class RabbitMQConsumerService : BackgroundService
     {
-        private readonly IConnection _rabbitConnection;
-        private readonly IHubContext<ChatHub> _hubContext;
         private readonly ILogger<RabbitMQConsumerService> _logger;
-        private IChannel? _channel; // v7: IModel -> IChannel. Để là nullable (?) vì nó sẽ được khởi tạo bất đồng bộ.
+        private readonly IConnection _rabbitConnection;
+        private readonly IServiceScopeFactory _scopeFactory; // Dùng để tạo scope cho các service scoped như Repo và Notifier
+        private IChannel? _channel;
 
-        // Sử dụng lại các hằng số đã định nghĩa
         private const string TopicExchangeName = "chat_topic_exchange";
         private const string DurableQueueName = "chat_messages_queue";
 
-        public RabbitMQConsumerService(IHubContext<ChatHub> hubContext, ILogger<RabbitMQConsumerService> logger, IConnection rabbitConnection)
+        /// <summary>
+        /// Constructor mới: Gỡ bỏ IHubContext, thêm IServiceScopeFactory.
+        /// </summary>
+        public RabbitMQConsumerService(
+            ILogger<RabbitMQConsumerService> logger,
+            IConnection rabbitConnection,
+            IServiceScopeFactory scopeFactory) // <-- Tiêm IServiceScopeFactory
         {
-            _hubContext = hubContext;
             _logger = logger;
             _rabbitConnection = rabbitConnection;
-
-            // v7: Không thể khởi tạo channel trong constructor nữa
-            // vì phương thức CreateChannelAsync() là bất đồng bộ.
-            // Việc khởi tạo sẽ được chuyển vào ExecuteAsync.
+            _scopeFactory = scopeFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,94 +42,94 @@ namespace ChatServer.Services
 
             try
             {
-                // v7: Khởi tạo channel bất đồng bộ ở đây
+                // Phần thiết lập kết nối, channel, exchange và queue không thay đổi
                 _channel = await _rabbitConnection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-                await _channel.ExchangeDeclareAsync(exchange: TopicExchangeName,
-                                      type: ExchangeType.Topic,
-                                      durable: true, // <-- THÊM DÒNG NÀY
-                                      autoDelete: false, // <-- Thêm cả dòng này cho rõ ràng
-                                      arguments: null,
-                                      cancellationToken: stoppingToken);
-
-                await _channel.QueueDeclareAsync(queue: DurableQueueName,
-                                              durable: true,
-                                              exclusive: false,
-                                              autoDelete: false,
-                                              arguments: null,
-                                              cancellationToken: stoppingToken);
-
-                await _channel.QueueBindAsync(queue: DurableQueueName,
-                                          exchange: TopicExchangeName,
-                                          routingKey: "chat.#", // Nhận tất cả các tin nhắn từ topic "chat"
-                                          cancellationToken: stoppingToken);
+                await _channel.ExchangeDeclareAsync(exchange: TopicExchangeName, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(queue: DurableQueueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
+                await _channel.QueueBindAsync(queue: DurableQueueName, exchange: TopicExchangeName, routingKey: "chat.#", cancellationToken: stoppingToken);
 
                 _logger.LogInformation("Waiting for messages from queue: {QueueName}", DurableQueueName);
 
-                // v7: Dùng AsyncEventingBasicConsumer thay cho EventingBasicConsumer
                 var consumer = new AsyncEventingBasicConsumer(_channel);
 
-                // v7: Đăng ký vào sự kiện ReceivedAsync
+                // --- ĐÂY LÀ PHẦN LOGIC CỐT LÕI ĐÃ ĐƯỢC THAY ĐỔI ---
                 consumer.ReceivedAsync += async (sender, ea) =>
                 {
+                    // Tạo ra một scope mới cho mỗi lần xử lý tin nhắn.
+                    // Điều này rất quan trọng vì IMessageRepo và IChatClientNotifier là Scoped service.
+                    await using var scope = _scopeFactory.CreateAsyncScope();
+                    var messageRepo = scope.ServiceProvider.GetRequiredService<IMessageRepo>();
+                    var clientNotifier = scope.ServiceProvider.GetRequiredService<IChatClientNotifier>();
+
                     var body = ea.Body.ToArray();
                     var messageJson = Encoding.UTF8.GetString(body);
+
                     try
                     {
-                        var message = JsonSerializer.Deserialize<ChatMessage>(messageJson);
-                        var routingKey = ea.RoutingKey;
-
-                        _logger.LogInformation("Received message with routing key: {RoutingKey}", routingKey);
-
-                        var keyParts = routingKey.Split('.');
-                        if (keyParts.Length < 2)
+                        var message = JsonSerializer.Deserialize<Message>(messageJson);
+                        if (message == null)
                         {
-                            // Vẫn nên ack ngay cả khi tin nhắn không hợp lệ để tránh vòng lặp vô hạn
-                            await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
+                            _logger.LogWarning("Received a message that could not be deserialized.");
+                            // Vẫn ACK để loại bỏ tin nhắn không hợp lệ khỏi queue
+                            await _channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
                             return;
                         }
 
-                        var messageType = keyParts[1];
+                        // === BƯỚC XỬ LÝ THEO "CÁCH 2" ===
 
-                        // Logic gửi tin nhắn qua SignalR không thay đổi,
-                        // chỉ cần truyền stoppingToken vào cho đúng chuẩn
+                        // 1. LƯU TIN NHẮN VÀO DATABASE
+                        await messageRepo.InsertAsync(message);
+                        _logger.LogInformation("Message with sender_id {SenderId} saved to database.", message.sender_id);
+
+                        // 2. GỬI THÔNG BÁO REAL-TIME TỚI CLIENT QUA NOTIFIER
+                        var routingKey = ea.RoutingKey;
+                        _logger.LogInformation("Notifying clients for message with routing key: {RoutingKey}", routingKey);
+
+                        var keyParts = routingKey.Split('.');
+                        var messageType = keyParts.Length > 1 ? keyParts[1] : null;
+
                         switch (messageType)
                         {
                             case "private" when keyParts.Length > 2:
-                                var targetUserId = keyParts[2];
-                                await _hubContext.Clients.User(targetUserId).SendAsync("ReceiveMessage", message, stoppingToken);
+                                await clientNotifier.SendPrivateMessageAsync(keyParts[2], message);
                                 break;
-
                             case "group" when keyParts.Length > 2:
-                                var targetGroupId = keyParts[2];
-                                await _hubContext.Clients.Group(targetGroupId).SendAsync("ReceiveMessage", message, stoppingToken);
+                                await clientNotifier.SendGroupMessageAsync(keyParts[2], message);
                                 break;
-
                             case "public":
-                                await _hubContext.Clients.All.SendAsync("ReceiveMessage", message, stoppingToken);
+                                await clientNotifier.SendPublicMessageAsync(message);
+                                break;
+                            default:
+                                _logger.LogWarning("Unknown routing key format: {RoutingKey}", routingKey);
                                 break;
                         }
-                        await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false, cancellationToken: stoppingToken);
+
+                        // Chỉ xác nhận (ACK) sau khi đã xử lý thành công (lưu DB và gửi thông báo)
+                        await _channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        _logger.LogError(jsonEx, "Failed to deserialize message: {Message}", messageJson);
+                        await _channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken); // Loại bỏ tin nhắn hỏng
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to process message: {Message}", messageJson);
+                        _logger.LogError(ex, "An unexpected error occurred while processing message: {Message}", messageJson);
+                        // Khi có lỗi, chúng ta không ACK (BasicAck) tin nhắn.
+                        // RabbitMQ sẽ giữ lại và thử gửi lại cho một consumer khác (hoặc chính consumer này sau một thời gian).
+                        // Cân nhắc dùng BasicNack và cấu hình Dead Letter Exchange để xử lý các tin nhắn lỗi vĩnh viễn.
                     }
                 };
 
-                // v7: Bắt đầu lắng nghe bất đồng bộ
-                await _channel.BasicConsumeAsync(queue: DurableQueueName,
-                                             autoAck: false,
-                                             consumer: consumer,
-                                             cancellationToken: stoppingToken);
+                await _channel.BasicConsumeAsync(queue: DurableQueueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
 
-                // Giữ cho background service chạy
                 while (!stoppingToken.IsCancellationRequested)
                 {
                     await Task.Delay(1000, stoppingToken);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "An error occurred in RabbitMQ Consumer Service.");
             }

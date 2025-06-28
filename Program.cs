@@ -8,12 +8,30 @@ using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Data;
+using Npgsql;
+using ChatServer.Repositories.Messenger;
+using ChatServer.Applications;
+using ChatServer.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 
 // ===== 1. Service registrations =====
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();                // built-in OpenAPI (ASP.NET 9)
+
+builder.Services.AddScoped<IDbConnection>(sp => new NpgsqlConnection(connectionString));
+
+builder.Services.AddScoped<IMessageService, MessageService>();
+
+builder.Services.AddScoped<IMessageRepo, MessageRepo>();
+builder.Services.AddScoped<IMessagePublisher, MessagePublisher>();
+
+builder.Services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
+
 
 
 builder.Services.AddAuthentication(options =>
