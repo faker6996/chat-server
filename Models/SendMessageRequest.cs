@@ -8,6 +8,7 @@ namespace ChatServer.Models
         // Ai là người gửi? Trong thực tế, bạn sẽ lấy thông tin này từ JWT token sau khi xác thực.
         public required int sender_id { get; set; }
 
+        public required int conversation_id { get; set; }
         public required string content { get; set; }
 
         // Loại tin nhắn là gì?

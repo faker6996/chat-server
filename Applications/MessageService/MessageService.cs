@@ -41,10 +41,11 @@ public class MessageService : IMessageService
         {
             sender_id = request.sender_id,
             content = request.content,
+            conversation_id = request.conversation_id,
             message_type = request.message_type,
             target_id = request.target_id,
             created_at = DateTime.UtcNow,
-            status = MessageStatus.Sent
+            status = MessageStatus.Sent.ToString()
         };
 
         try
