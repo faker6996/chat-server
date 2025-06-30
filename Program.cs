@@ -92,7 +92,7 @@ builder.Services.AddCors(opts =>
     {
         // 1. Chỉ định chính xác nguồn gốc của Next.js app
         //    Mặc định Next.js dev server chạy trên port 3000
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "https://adoria.aistudio.com.vn")
 
          // 2. Cho phép mọi header và method như cũ để linh hoạt
          .AllowAnyHeader()
