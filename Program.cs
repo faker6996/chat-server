@@ -93,8 +93,7 @@ builder.Services.AddCors(opts =>
         // Thêm domain mới của bạn vào đây
         policy.WithOrigins(
                  "http://localhost:3000",
-                 "https://adoria.aistudio.com.vn",
-                 "https://bachtv-chat.duckdns.org"
+                 "https://adoria.aistudio.com.vn"
                )
              .AllowAnyHeader()
              .AllowAnyMethod()
