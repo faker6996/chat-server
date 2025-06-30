@@ -4,7 +4,7 @@ using ChatServer.Models;
 namespace ChatServer.Applications;
 
 // Định nghĩa một DTO (Data Transfer Object) để chứa kết quả trả về từ service
-public record MessageServiceResult(bool IsSuccess, string? ErrorMessage = null, object? Data = null);
+public record MessageServiceResult(bool IsSuccess, string? ErrorMessage = null, object? data = null);
 
 public interface IMessageService
 {

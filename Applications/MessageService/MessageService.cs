@@ -55,7 +55,7 @@ public class MessageService : IMessageService
 
             // 5️⃣ Trả về kết quả thành công
             var responseData = new { Status = "Message routed successfully", RoutingKey = routingKey };
-            return new MessageServiceResult(true, Data: responseData);
+            return new MessageServiceResult(true, data: msg);
         }
         catch (Exception ex)
         {

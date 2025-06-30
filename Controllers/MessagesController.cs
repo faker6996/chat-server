@@ -35,6 +35,6 @@ public class MessagesController : BaseApiController
             return InternalErrorResponse(result.ErrorMessage ?? "An unknown error occurred.");
         }
 
-        return OkResponse(result.Data, "Message published successfully.");
+        return OkResponse(result.data, "Message published successfully.");
     }
 }
