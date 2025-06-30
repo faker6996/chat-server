@@ -90,16 +90,15 @@ builder.Services.AddCors(opts =>
 {
     opts.AddPolicy("AllowNextApp", policy =>
     {
-        // 1. Chỉ định chính xác nguồn gốc của Next.js app
-        //    Mặc định Next.js dev server chạy trên port 3000
-        policy.WithOrigins("http://localhost:3000", "https://adoria.aistudio.com.vn")
-
-         // 2. Cho phép mọi header và method như cũ để linh hoạt
-         .AllowAnyHeader()
-         .AllowAnyMethod()
-
-         // 3. BẮT BUỘC: Cho phép trình duyệt gửi kèm cookie và các thông tin xác thực khác
-         .AllowCredentials();
+        // Thêm domain mới của bạn vào đây
+        policy.WithOrigins(
+                 "http://localhost:3000",
+                 "https://adoria.aistudio.com.vn",
+                 "https://bachtv-chat.duckdns.org"
+               )
+             .AllowAnyHeader()
+             .AllowAnyMethod()
+             .AllowCredentials();
     });
 });
 builder.Services.AddSignalR();
