@@ -155,7 +155,7 @@ app.UseAuthorization();
 
 // ===== 4. Routing =====
 app.MapControllers();
-app.MapHub<ChatHub>("/chathub");
+app.MapHub<ChatHub>("/chathub").RequireCors("AllowNextApp"); ;
 
 // demo endpoint
 var summaries = new[]
