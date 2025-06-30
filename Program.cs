@@ -90,15 +90,27 @@ builder.Services.AddCors(opts =>
 {
     opts.AddPolicy("AllowNextApp", policy =>
     {
-        // Thêm domain mới của bạn vào đây
-        policy.WithOrigins(
-                 "http://localhost:3000",
-                 "https://adoria.aistudio.com.vn",
-                 "https://adoria.aistudio.com.vn/"
-               )
-             .AllowAnyHeader()
-             .AllowAnyMethod()
-             .AllowCredentials();
+        // 1) Cho phép origin local của Next.js
+        policy.WithOrigins("http://localhost:3000")
+
+              .SetIsOriginAllowed(origin =>
+              {
+
+                  try
+                  {
+                      var host = new Uri(origin).Host;
+                      return host.EndsWith(".aistudio.com.vn", StringComparison.OrdinalIgnoreCase);
+                  }
+                  catch
+                  {
+                      return false; // origin không hợp lệ
+                  }
+              })
+
+              // 3) Các thiết lập CORS khác
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 builder.Services.AddSignalR();
