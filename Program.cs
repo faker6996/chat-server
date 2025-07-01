@@ -94,18 +94,13 @@ builder.Services.AddCors(opts =>
         policy.WithOrigins("http://localhost:3000")
 
               .SetIsOriginAllowed(origin =>
-              {
+                {
+                    var uri = new Uri(origin);
 
-                  try
-                  {
-                      var host = new Uri(origin).Host;
-                      return host.EndsWith(".aistudio.com.vn", StringComparison.OrdinalIgnoreCase);
-                  }
-                  catch
-                  {
-                      return false; // origin không hợp lệ
-                  }
-              })
+                    // Cho phép localhost (mọi port) hoặc *.aistudio.com.vn
+                    return uri.IsLoopback                             // 127.0.0.1, localhost, v.v.
+                        || uri.Host.EndsWith(".aistudio.com.vn", StringComparison.OrdinalIgnoreCase);
+                })
 
               // 3) Các thiết lập CORS khác
               .AllowAnyHeader()
