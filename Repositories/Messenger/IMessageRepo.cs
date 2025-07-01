@@ -12,4 +12,7 @@ public interface IMessageRepo : IBaseRepository<Message>
     //    Ví dụ: Lấy tất cả tin nhắn trong một cuộc hội thoại.
     Task<IEnumerable<Message>> GetMessagesByConversationIdAsync(string conversationId);
     Task<Message> InsertMessageAsync(Message message);
+
+    Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, long lastMessageId);
+
 }

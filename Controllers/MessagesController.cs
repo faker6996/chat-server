@@ -37,4 +37,15 @@ public class MessagesController : BaseApiController
 
         return OkResponse(result.data, "Message published successfully.");
     }
+
+    [HttpGet("sync")]
+    public async Task<IActionResult> SyncMessages([FromQuery] int conversationId, [FromQuery] long lastMessageId)
+    {
+        // Bạn có thể thêm logic kiểm tra xem người dùng hiện tại có thuộc về conversationId này không để tăng bảo mật
+
+        var missedMessages = await _messageService.GetSyncMessages(conversationId, lastMessageId);
+
+        // Trả về danh sách các tin nhắn đã lỡ
+        return Ok(missedMessages);
+    }
 }

@@ -1,6 +1,7 @@
 // File: Application/MessageService.cs
 using ChatServer.Constants;
 using ChatServer.Models;
+using ChatServer.Repositories.Messenger;
 using Microsoft.Extensions.Logging; // Thêm using cho ILogger
 
 // Sửa lại namespace cho nhất quán
@@ -9,14 +10,16 @@ namespace ChatServer.Applications;
 public class MessageService : IMessageService
 {
     private readonly IMessagePublisher _messagePublisher;
+    private readonly IMessageRepo _messageRepo;
     private readonly ILogger<MessageService> _logger;
 
     private const string TopicExchange = "chat_topic_exchange";
 
-    public MessageService(IMessagePublisher messagePublisher, ILogger<MessageService> logger)
+    public MessageService(IMessagePublisher messagePublisher, ILogger<MessageService> logger, IMessageRepo messageRepo)
     {
         _messagePublisher = messagePublisher;
         _logger = logger;
+        _messageRepo = messageRepo;
     }
 
     public async Task<MessageServiceResult> SendMessageAsync(SendMessageRequest request)
@@ -62,5 +65,11 @@ public class MessageService : IMessageService
             _logger.LogError(ex, "An error occurred while publishing the message.");
             return new MessageServiceResult(false, "Failed to publish message due to a server error.");
         }
+    }
+
+    public async Task<MessageServiceResult> GetSyncMessages(int conId, long mesLastId)
+    {
+        var listMes = await _messageRepo.GetMessagesAfterIdAsync(conId, mesLastId);
+        return new MessageServiceResult(true, data: listMes);
     }
 }

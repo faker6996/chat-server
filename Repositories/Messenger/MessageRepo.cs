@@ -29,4 +29,14 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
 
         return await _dbConnection.QueryAsync<Message>(sql, new { ConversationId = conversationId });
     }
+
+    public async Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, long lastMessageId)
+    {
+        // _tableName và _dbConnection được kế thừa từ BaseRepository
+        var sql = $"SELECT * FROM {_tableName} " +
+                  "WHERE conversation_id = @ConversationId AND id > @LastMessageId " +
+                  "ORDER BY created_at ASC";
+
+        return await _dbConnection.QueryAsync<Message>(sql, new { ConversationId = conversationId, LastMessageId = lastMessageId });
+    }
 }
