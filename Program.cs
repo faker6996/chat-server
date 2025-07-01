@@ -19,6 +19,12 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 
+var urls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (!string.IsNullOrEmpty(urls))
+{
+    builder.WebHost.UseUrls(urls);
+}
+
 // ===== 1. Service registrations =====
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();                // built-in OpenAPI (ASP.NET 9)
