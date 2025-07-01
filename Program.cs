@@ -24,6 +24,10 @@ if (!string.IsNullOrEmpty(urls))
 {
     builder.WebHost.UseUrls(urls);
 }
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5077);
+});
 
 // ===== 1. Service registrations =====
 builder.Services.AddControllers();
