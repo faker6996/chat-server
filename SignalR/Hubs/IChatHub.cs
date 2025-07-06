@@ -3,17 +3,22 @@ using System.Threading.Tasks;
 
 namespace ChatServer.SignalR.Hubs
 {
+    /// <summary>
+    /// Interface định nghĩa các phương thức mà SERVER có thể gọi trên CLIENT.
+    /// </summary>
     public interface IChatHub
     {
-        // Phương thức cho chat
-        Task SendMessage(SendMessageRequest req);
-        Task JoinGroup(string groupName);
-        Task LeaveGroup(string groupName);
+        // --- Phương thức cho Chat ---
+        Task MessageFailed(string errorMessage);
 
-        // Phương thức cho video call
-        Task SendCallOffer(string targetUserId, string offer);
-        Task SendCallAnswer(string targetUserId, string answer);
-        Task SendIceCandidate(string targetUserId, string candidate);
-        Task EndCall(string targetUserId);
+        // --- Phương thức cho Video Call ---
+        Task ReceiveCallOffer(string callerId, string offer);
+        Task ReceiveCallAnswer(string calleeId, string answer);
+        Task ReceiveIceCandidate(string senderId, string candidate);
+        Task CallEnded(string endingUserId);
+
+        // --- Phương thức cho Trạng thái Online ---
+        Task UserOnline(string userId);
+        Task UserOffline(string userId);
     }
 }

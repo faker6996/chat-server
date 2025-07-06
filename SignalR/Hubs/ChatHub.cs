@@ -1,33 +1,35 @@
 using ChatServer.Applications;
 using ChatServer.Models;
+using ChatServer.Repositories.Messenger;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks; // Đảm bảo có using này
+using System;
+using System.Threading.Tasks;
 
 namespace ChatServer.SignalR.Hubs
 {
-    // Cập nhật class để kế thừa từ Hub<IHubClient> và triển khai IChatHub
     // [Authorize]
-    public class ChatHub : Hub<IHubClient>, IChatHub
+    // Sửa lại để Hub sử dụng IChatHub cho client proxy
+    public class ChatHub : Hub<IChatHub>
     {
         private readonly IMessageService _messageService;
+        private readonly IUserRepo _userService; // Dùng IUserRepo như bạn đã cung cấp
         private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(IMessageService messageService, ILogger<ChatHub> logger)
+        public ChatHub(IMessageService messageService, IUserRepo userService, ILogger<ChatHub> logger)
         {
             _messageService = messageService;
+            _userService = userService;
             _logger = logger;
         }
 
-        // --- CÁC PHƯƠNG THỨC CHAT ---
+        // --- CÁC PHƯƠNG THỨC CLIENT GỌI SERVER ---
 
         public async Task SendMessage(SendMessageRequest req)
         {
             var result = await _messageService.SendMessageAsync(req);
-
             if (!result.IsSuccess)
             {
-                // Gọi phương thức MessageFailed đã được định nghĩa trong IHubClient
                 await Clients.Caller.MessageFailed(result.ErrorMessage);
             }
         }
@@ -44,8 +46,6 @@ namespace ChatServer.SignalR.Hubs
             _logger.LogInformation("User {UserIdentifier} left group {GroupName}", Context.UserIdentifier, groupName);
         }
 
-        // --- CÁC PHƯƠNG THỨC VIDEO CALL ---
-
         public async Task SendCallOffer(string targetUserId, string offer)
         {
             var callerId = Context.UserIdentifier;
@@ -60,11 +60,6 @@ namespace ChatServer.SignalR.Hubs
 
         public async Task SendIceCandidate(string targetUserId, string candidate)
         {
-            // THÊM CÁC DÒNG LOG NÀY ĐỂ DEBUG
-            _logger.LogInformation("--- Received ICE Candidate ---");
-            _logger.LogInformation("Sender ID (from Context): {UserIdentifier}", Context.UserIdentifier);
-            _logger.LogInformation("Target User ID (from client): {TargetUserId}", targetUserId);
-
             var senderId = Context.UserIdentifier;
             await Clients.User(targetUserId).ReceiveIceCandidate(senderId, candidate);
         }
@@ -75,12 +70,42 @@ namespace ChatServer.SignalR.Hubs
             await Clients.User(targetUserId).CallEnded(endingUserId);
         }
 
-        // --- CÁC PHƯƠNG THỨC LIFECYCLE ---
+        // --- CÁC PHƯƠNG THỨC LIFECYCLE CỦA HUB ---
 
-        public override Task OnConnectedAsync()
+        // Sửa lại: Gộp 2 phương thức OnConnectedAsync thành một
+        public override async Task OnConnectedAsync()
         {
             _logger.LogInformation("User connected with ID: {UserIdentifier}", Context.UserIdentifier);
-            return base.OnConnectedAsync();
+
+            var userId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Cập nhật trạng thái online trong DB
+                await _userService.UpdateUserStatusAsync(int.Parse(userId), true);
+
+                // Thông báo cho các client khác rằng user này đã online
+                // Gửi cho tất cả client trừ người vừa kết nối
+                await Clients.Others.UserOnline(userId);
+            }
+
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            _logger.LogInformation("User disconnected with ID: {UserIdentifier}", Context.UserIdentifier);
+
+            var userId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Cập nhật trạng thái offline và last_seen trong DB
+                await _userService.UpdateUserStatusAsync(int.Parse(userId), false);
+
+                // Thông báo cho các client khác rằng user này đã offline
+                await Clients.Others.UserOffline(userId);
+            }
+
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }

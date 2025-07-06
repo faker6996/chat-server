@@ -81,6 +81,24 @@ public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
         return rowsAffected > 0;
     }
 
+    public virtual async Task<bool> UpdatePartialAsync(int id, object fieldsToUpdate)
+    {
+        var keyColumn = GetKeyColumnName();
+        var props = fieldsToUpdate.GetType().GetProperties();
+        if (!props.Any())
+            throw new ArgumentException("No fields to update");
+
+        var setClauses = string.Join(", ", props.Select(p => $"{ToSnakeCase(p.Name)} = @{p.Name}"));
+
+        var sql = $"UPDATE {_tableName} SET {setClauses} WHERE {keyColumn} = @Id";
+        var param = new DynamicParameters(fieldsToUpdate);
+        param.Add("Id", id);
+
+        var affected = await _dbConnection.ExecuteAsync(sql, param);
+        return affected > 0;
+    }
+
+
     public virtual async Task<bool> DeleteAsync(long id)
     {
         var sql = $"DELETE FROM {_tableName} WHERE {GetKeyColumnName()} = @Id";
