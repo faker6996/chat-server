@@ -28,6 +28,7 @@ builder.Services.AddScoped<IDbConnection>(sp => new NpgsqlConnection(connectionS
 builder.Services.AddScoped<IMessageService, MessageService>();
 
 builder.Services.AddScoped<IMessageRepo, MessageRepo>();
+builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IMessagePublisher, MessagePublisher>();
 
 builder.Services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
