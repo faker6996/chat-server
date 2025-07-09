@@ -2,6 +2,7 @@
 using ChatServer.Constants;
 using ChatServer.Models;
 using ChatServer.Repositories.Messenger;
+using ChatServer.Repositories.Attachment;
 using Microsoft.Extensions.Logging; // Thêm using cho ILogger
 
 // Sửa lại namespace cho nhất quán
@@ -11,15 +12,17 @@ public class MessageService : IMessageService
 {
     private readonly IMessagePublisher _messagePublisher;
     private readonly IMessageRepo _messageRepo;
+    private readonly IAttachmentRepo _attachmentRepo;
     private readonly ILogger<MessageService> _logger;
 
     private const string TopicExchange = "chat_topic_exchange";
 
-    public MessageService(IMessagePublisher messagePublisher, ILogger<MessageService> logger, IMessageRepo messageRepo)
+    public MessageService(IMessagePublisher messagePublisher, ILogger<MessageService> logger, IMessageRepo messageRepo, IAttachmentRepo attachmentRepo)
     {
         _messagePublisher = messagePublisher;
         _logger = logger;
         _messageRepo = messageRepo;
+        _attachmentRepo = attachmentRepo;
     }
 
     public async Task<MessageServiceResult> SendMessageAsync(SendMessageRequest request)
@@ -39,13 +42,30 @@ public class MessageService : IMessageService
             _ => "chat.public.all"
         };
 
-        // 3️⃣ Tạo đối tượng Message
+        // 3️⃣ Xác định content_type dựa trên attachments
+        var contentType = request.content_type;
+        if (request.attachments != null && request.attachments.Count > 0)
+        {
+            // Nếu có attachments, kiểm tra loại file
+            var firstAttachment = request.attachments[0];
+            if (firstAttachment.file_type.StartsWith("image/"))
+            {
+                contentType = "image";
+            }
+            else
+            {
+                contentType = "file";
+            }
+        }
+
+        // 4️⃣ Tạo đối tượng Message
         var msg = new Message
         {
             sender_id = request.sender_id,
             content = request.content,
             conversation_id = request.conversation_id,
             message_type = request.message_type,
+            content_type = contentType,
             target_id = request.target_id,
             created_at = DateTime.UtcNow,
             status = MessageStatus.Sent.ToString()
@@ -53,12 +73,33 @@ public class MessageService : IMessageService
 
         try
         {
-            // 4️⃣ Gọi đến Publisher để gửi tin
-            await _messagePublisher.PublishAsync(TopicExchange, routingKey, msg);
+            // 5️⃣ Lưu message vào database trước để có ID
+            var savedMessage = await _messageRepo.InsertMessageAsync(msg);
 
-            // 5️⃣ Trả về kết quả thành công
+            // 6️⃣ Nếu có attachments, lưu vào database
+            if (request.attachments != null && request.attachments.Count > 0)
+            {
+                foreach (var attachmentReq in request.attachments)
+                {
+                    var attachment = new Models.Attachment
+                    {
+                        message_id = savedMessage.id,
+                        file_name = attachmentReq.file_name,
+                        file_url = attachmentReq.file_url,
+                        file_type = attachmentReq.file_type,
+                        file_size = attachmentReq.file_size,
+                        created_at = DateTime.UtcNow
+                    };
+                    await _attachmentRepo.CreateAsync(attachment);
+                }
+            }
+
+            // 7️⃣ Gọi đến Publisher để gửi tin
+            await _messagePublisher.PublishAsync(TopicExchange, routingKey, savedMessage);
+
+            // 8️⃣ Trả về kết quả thành công
             var responseData = new { Status = "Message routed successfully", RoutingKey = routingKey };
-            return new MessageServiceResult(true, data: msg);
+            return new MessageServiceResult(true, data: savedMessage);
         }
         catch (Exception ex)
         {
@@ -70,6 +111,28 @@ public class MessageService : IMessageService
     public async Task<MessageServiceResult> GetSyncMessages(int conId, long mesLastId)
     {
         var listMes = await _messageRepo.GetMessagesAfterIdAsync(conId, mesLastId);
-        return new MessageServiceResult(true, data: listMes);
+        
+        // Tạo MessageResponse với attachments
+        var messageResponses = new List<MessageResponse>();
+        foreach (var message in listMes)
+        {
+            var attachments = await _attachmentRepo.GetByMessageIdAsync(message.id);
+            var messageResponse = new MessageResponse
+            {
+                id = message.id,
+                conversation_id = message.conversation_id,
+                sender_id = message.sender_id,
+                content = message.content,
+                message_type = message.message_type,
+                content_type = message.content_type,
+                created_at = message.created_at,
+                status = message.status,
+                target_id = message.target_id,
+                attachments = attachments.Count > 0 ? attachments : null
+            };
+            messageResponses.Add(messageResponse);
+        }
+        
+        return new MessageServiceResult(true, data: messageResponses);
     }
 }

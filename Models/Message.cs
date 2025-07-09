@@ -32,9 +32,14 @@ namespace ChatServer.Models
         public required string content { get; set; }
 
         /// <summary>
-        /// Loại nội dung của tin nhắn.
+        /// Loại tin nhắn (PUBLIC/PRIVATE/GROUP).
         /// </summary>
         public MESSAGE_TYPE message_type { get; set; }
+
+        /// <summary>
+        /// Loại nội dung (text/image/file).
+        /// </summary>
+        public string content_type { get; set; } = "text";
 
         /// <summary>
         /// Thời gian tin nhắn được tạo (UTC).

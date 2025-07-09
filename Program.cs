@@ -11,6 +11,7 @@ using System.Text;
 using System.Data;
 using Npgsql;
 using ChatServer.Repositories.Messenger;
+using ChatServer.Repositories.Attachment;
 using ChatServer.Applications;
 using ChatServer.Repositories;
 
@@ -29,6 +30,7 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 
 builder.Services.AddScoped<IMessageRepo, MessageRepo>();
 builder.Services.AddScoped<IUserRepo, UserRepo>();
+builder.Services.AddScoped<IAttachmentRepo, AttachmentRepo>();
 builder.Services.AddScoped<IMessagePublisher, MessagePublisher>();
 
 builder.Services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
@@ -148,6 +150,14 @@ app.UseHttpsRedirection();
 app.UseCors("AllowNextApp");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Serve static files từ thư mục uploads
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "uploads")),
+    RequestPath = "/uploads"
+});
 
 // ===== 4. Routing =====
 app.MapControllers();

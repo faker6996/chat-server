@@ -13,11 +13,17 @@ namespace ChatServer.Models
 
         // Loại tin nhắn là gì?
         public required MESSAGE_TYPE message_type { get; set; }
+        
+        // Loại nội dung (text/image/file)
+        public string content_type { get; set; } = "text";
 
         // Đích đến của tin nhắn
         // - Nếu là Private, đây là UserId của người nhận.
         // - Nếu là Group, đây là GroupId.
         // - Nếu là Public, có thể để trống.
         public int? target_id { get; set; }
+        
+        // Danh sách các file đính kèm
+        public List<AttachmentRequest>? attachments { get; set; }
     }
 }

@@ -89,3 +89,9 @@ docker-compose.vs.release.yml
 # Log files
 *.log
 logs/
+
+# ########################## #
+# ## Uploaded Files ##
+# ########################## #
+# Ignore uploaded files from users
+uploads/
