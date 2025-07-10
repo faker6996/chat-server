@@ -32,6 +32,7 @@ builder.Services.AddScoped<IMessageRepo, MessageRepo>();
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IAttachmentRepo, AttachmentRepo>();
 builder.Services.AddScoped<IMessagePublisher, MessagePublisher>();
+builder.Services.AddScoped<ChatServer.Repositories.Reaction.IReactionRepo, ChatServer.Repositories.Reaction.ReactionRepo>();
 
 builder.Services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
 

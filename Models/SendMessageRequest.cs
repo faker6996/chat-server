@@ -25,5 +25,8 @@ namespace ChatServer.Models
         
         // Danh sách các file đính kèm
         public List<AttachmentRequest>? attachments { get; set; }
+        
+        // ID của tin nhắn được reply (nếu có)
+        public int? reply_to_message_id { get; set; }
     }
 }

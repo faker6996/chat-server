@@ -39,4 +39,39 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
 
         return await _dbConnection.QueryAsync<Message>(sql, new { ConversationId = conversationId, LastMessageId = lastMessageId });
     }
+
+    public async Task<Message?> GetMessageWithDetailsAsync(long messageId)
+    {
+        var sql = $@"
+            SELECT 
+                m.*,
+                rm.id as replied_id,
+                rm.content as replied_content,
+                rm.sender_id as replied_sender_id,
+                rm.content_type as replied_content_type,
+                rm.created_at as replied_created_at
+            FROM {_tableName} m
+            LEFT JOIN {_tableName} rm ON m.reply_to_message_id = rm.id
+            WHERE m.id = @MessageId";
+
+        var messageDictionary = new Dictionary<long, Message>();
+        
+        var result = await _dbConnection.QueryAsync<Message, dynamic, Message>(
+            sql,
+            (message, repliedMessage) =>
+            {
+                if (!messageDictionary.TryGetValue(message.id, out var messageEntry))
+                {
+                    messageEntry = message;
+                    messageDictionary.Add(message.id, messageEntry);
+                }
+                
+                return messageEntry;
+            },
+            new { MessageId = messageId },
+            splitOn: "replied_id"
+        );
+
+        return result.FirstOrDefault();
+    }
 }

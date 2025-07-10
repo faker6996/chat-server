@@ -67,6 +67,7 @@ public class MessageService : IMessageService
             message_type = request.message_type,
             content_type = contentType,
             target_id = request.target_id,
+            reply_to_message_id = request.reply_to_message_id,
             created_at = DateTime.UtcNow,
             status = MessageStatus.Sent.ToString()
         };

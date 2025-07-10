@@ -14,5 +14,6 @@ public interface IMessageRepo : IBaseRepository<Message>
     Task<Message> InsertMessageAsync(Message message);
 
     Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, long lastMessageId);
+    Task<Message?> GetMessageWithDetailsAsync(long messageId);
 
 }

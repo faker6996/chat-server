@@ -13,6 +13,9 @@ namespace ChatServer.Models
         public DateTime created_at { get; set; }
         public required string status { get; set; }
         public int? target_id { get; set; }
+        public int? reply_to_message_id { get; set; }
         public List<Attachment>? attachments { get; set; }
+        public List<MessageReaction>? reactions { get; set; }
+        public MessageResponse? replied_message { get; set; }
     }
 }

@@ -48,6 +48,10 @@ namespace ChatServer.Models
 
         public required string status { get; set; }
 
+        /// <summary>
+        /// ID của tin nhắn được reply (nếu có).
+        /// </summary>
+        public int? reply_to_message_id { get; set; }
 
         /// <summary>
         /// ID của người nhận hoặc nhóm nhận. Có thể null.

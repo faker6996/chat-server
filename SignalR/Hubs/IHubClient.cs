@@ -8,6 +8,10 @@ namespace ChatServer.SignalR.Hubs
         // Phương thức cho chat
         Task ReceiveMessage(Message message);
         Task MessageFailed(string errorMessage);
+        
+        // Phương thức cho reactions
+        Task ReceiveReaction(int messageId, MessageReaction reaction);
+        Task RemoveReaction(int messageId, int userId, string emoji);
 
         // Phương thức cho video call
         Task ReceiveCallOffer(string callingUserId, string offer);

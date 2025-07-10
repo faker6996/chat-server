@@ -1,0 +1,33 @@
+using System.Data;
+using ChatServer.Models;
+using ChatServer.Repositories.Base;
+using Dapper;
+
+namespace ChatServer.Repositories.Reaction
+{
+    public class ReactionRepo : BaseRepository<MessageReaction>, IReactionRepo
+    {
+        public ReactionRepo(IDbConnection dbConnection) : base(dbConnection)
+        {
+        }
+
+        public async Task<MessageReaction?> GetByMessageUserEmojiAsync(int messageId, int userId, string emoji)
+        {
+            var sql = $"SELECT * FROM {_tableName} WHERE message_id = @MessageId AND user_id = @UserId AND emoji = @Emoji";
+            return await _dbConnection.QueryFirstOrDefaultAsync<MessageReaction>(sql, new { MessageId = messageId, UserId = userId, Emoji = emoji });
+        }
+
+        public async Task<IEnumerable<MessageReaction>> GetByMessageIdAsync(int messageId)
+        {
+            var sql = $"SELECT * FROM {_tableName} WHERE message_id = @MessageId";
+            return await _dbConnection.QueryAsync<MessageReaction>(sql, new { MessageId = messageId });
+        }
+
+        public async Task<bool> RemoveReactionAsync(int messageId, int userId, string emoji)
+        {
+            var sql = $"DELETE FROM {_tableName} WHERE message_id = @MessageId AND user_id = @UserId AND emoji = @Emoji";
+            var rowsAffected = await _dbConnection.ExecuteAsync(sql, new { MessageId = messageId, UserId = userId, Emoji = emoji });
+            return rowsAffected > 0;
+        }
+    }
+}

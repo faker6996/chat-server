@@ -9,4 +9,6 @@ public interface IChatClientNotifier
     Task SendPublicMessageAsync(Message message);
     Task SendPrivateMessageAsync(string userId, Message message);
     Task SendGroupMessageAsync(string groupName, Message message);
+    Task SendReactionAsync(int messageId, MessageReaction reaction);
+    Task RemoveReactionAsync(int messageId, int userId, string emoji);
 }
