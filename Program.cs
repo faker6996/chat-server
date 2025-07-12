@@ -12,6 +12,7 @@ using System.Data;
 using Npgsql;
 using ChatServer.Repositories.Messenger;
 using ChatServer.Repositories.Attachment;
+using ChatServer.Repositories.Group;
 using ChatServer.Applications;
 using ChatServer.Repositories;
 
@@ -33,6 +34,9 @@ builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IAttachmentRepo, AttachmentRepo>();
 builder.Services.AddScoped<IMessagePublisher, MessagePublisher>();
 builder.Services.AddScoped<ChatServer.Repositories.Reaction.IReactionRepo, ChatServer.Repositories.Reaction.ReactionRepo>();
+
+// Group chat repositories
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 
 builder.Services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
 

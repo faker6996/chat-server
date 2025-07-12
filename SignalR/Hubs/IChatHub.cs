@@ -20,5 +20,9 @@ namespace ChatServer.SignalR.Hubs
         // --- Phương thức cho Trạng thái Online ---
         Task UserOnline(string userId);
         Task UserOffline(string userId);
+
+        // --- Phương thức cho Group Chat ---
+        Task UserJoinedGroup(int groupId, int userId);
+        Task UserLeftGroup(int groupId, int userId);
     }
 }
