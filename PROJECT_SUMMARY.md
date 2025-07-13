@@ -29,18 +29,31 @@
 │       ├── messenger/          # Chat APIs
 │       └── users/              # User management APIs
 ├── components/                   # React Components
-│   ├── ui/                     # Base UI components
+│   ├── ui/                     # Base UI components (Button, Input, Textarea, Switch, etc.)
 │   ├── layout/                 # Layout components (Header, Sidebar)
 │   ├── home/                   # Trang chủ components
 │   ├── login/                  # Đăng nhập components
 │   └── messenger/              # Chat components
+│       ├── MessengerContainer.tsx    # Main chat interface
+│       ├── MessengerDropdown.tsx     # Chat dropdown với group filtering
+│       ├── MessageList.tsx           # Message display với group support
+│       ├── MessageInput.tsx          # Message input component
+│       ├── CreateGroupModal.tsx      # Group creation modal ⭐ MỚI
+│       ├── GroupSettingsModal.tsx    # Group management modal ⭐ MỚI
+│       └── useSignalRConnection.ts   # SignalR hook với group events
 ├── lib/                         # Business Logic
 │   ├── models/                 # Database models
+│   │   ├── user.ts            # User model
+│   │   ├── message.ts         # Message model với attachments/reactions
+│   │   ├── messenger_review.ts # MessengerPreview với group support
+│   │   └── group.ts           # Group models (Group, GroupMember, etc.) ⭐ MỚI
 │   ├── modules/                # Business modules
 │   │   ├── auth/              # Authentication logic
 │   │   ├── messenger/         # Chat logic
 │   │   └── user/              # User logic
 │   ├── constants/             # Hằng số và cấu hình
+│   │   ├── api-routes.ts      # API endpoints với group management ⭐ MỚI
+│   │   └── enum.ts            # Message types (PRIVATE=1, GROUP=2)
 │   ├── utils/                 # Utility functions
 │   └── middlewares/           # Middleware pipeline
 └── i18n/                       # Internationalization
@@ -59,18 +72,26 @@
 ### 2. Messenger System (Real-time Chat)
 
 - **SignalR**: Real-time bidirectional communication
-- **Features**:
-  - Private messaging
+- **Private Chat Features**:
+  - Private messaging between users
   - File attachments (image, document)
   - Message reactions (emoji)
   - Reply to messages
   - Online/offline status
   - Message status (Sending, Delivered, Failed)
   - Retry failed messages
+- **Group Chat Features** ⭐ **MỚI**:
+  - Create và manage groups với roles (admin, moderator, member)
+  - Group messaging với sender identification
+  - Member management (add, remove, promote/demote)
+  - Group settings (public/private, approval required, max members)
+  - Invite link generation
+  - Real-time group events (member join/leave, role changes)
+  - Group info modal với member list và permissions
 - **Architecture**:
   - Frontend: React components với SignalR hooks
   - Backend: Separate chat server với API integration
-  - Database: Message history trong PostgreSQL
+  - Database: Message history + group management trong PostgreSQL
 
 ### 3. Social Media Features
 
@@ -114,11 +135,16 @@
 ### Core Models
 
 - **User**: Thông tin người dùng, SSO support
-- **Message**: Tin nhắn với attachments, reactions
-- **Conversation**: Cuộc trò chuyện giữa users
+- **Message**: Tin nhắn với attachments, reactions, reply support
+- **MessengerPreview**: Conversation preview với group support
 - **Menu**: Dynamic navigation system
 - **Attachment**: File uploads
 - **Reaction**: Message reactions
+- **Group Models** ⭐ **MỚI**:
+  - **Group**: Group info (name, description, settings, member count)
+  - **GroupMember**: Member info với roles (admin, moderator, member)
+  - **GroupJoinRequest**: Join request management
+  - **CreateGroupRequest/UpdateGroupRequest**: API request DTOs
 
 ## API Endpoints
 
@@ -130,11 +156,38 @@
 - `GET /api/auth/me` - Current user info
 - `POST /api/auth/logout` - Logout
 
-### Messenger
+### Messenger & Groups
 
-- `GET /api/messenger/conversations` - User conversations
+**NextJS API Routes:**
+
+- `GET /api/messenger/conversations` - User conversations (private + groups)
 - `GET /api/messenger/messages` - Conversation messages
-- External chat server endpoints cho real-time features
+- `GET /api/search/user` - User search cho group invitations
+
+**External Chat Server Endpoints** ⭐ **MỚI**:
+
+**Group Management:**
+
+- `POST /api/groups` - Create new group
+- `PUT /api/groups/{id}` - Update group settings
+- `GET /api/groups/{id}/info` - Get group information
+- `GET /api/groups/{id}/members` - Get group members
+- `POST /api/groups/{id}/members` - Add members to group
+- `DELETE /api/groups/{id}/members/{userId}` - Remove member
+- `POST /api/groups/{id}/leave` - Leave group
+- `POST /api/groups/{id}/promote` - Promote/demote member
+- `GET /api/groups/{id}/invite-link` - Generate invite link
+
+**Join Requests:**
+
+- `POST /api/groups/{id}/requests` - Request to join group
+- `GET /api/groups/{id}/requests` - Get pending join requests
+- `PUT /api/groups/{groupId}/requests/{requestId}` - Handle join request
+- `POST /api/groups/join/{inviteCode}` - Join via invite link
+
+**Real-time Features:**
+
+- SignalR Hub `/chathub` cho group events
 
 ## Deployment & Environment
 
@@ -173,14 +226,63 @@ npm run docker:*     # Docker operations cho các environments
 ## Đặc điểm nổi bật
 
 1. **Modular Architecture**: Clean separation của concerns
-2. **Real-time Messaging**: Production-ready chat system
-3. **Internationalization**: Multi-language support
-4. **Security**: Comprehensive security measures
-5. **Scalability**: Docker-based deployment ready
-6. **Type Safety**: Full TypeScript implementation
-7. **Modern Stack**: Latest versions của all dependencies
+2. **Real-time Messaging**: Production-ready chat system với group support ⭐
+3. **Group Chat System**: Comprehensive group management với roles và permissions ⭐
+4. **Internationalization**: Multi-language support
+5. **Security**: Comprehensive security measures
+6. **Scalability**: Docker-based deployment ready
+7. **Type Safety**: Full TypeScript implementation
+8. **Modern Stack**: Latest versions của all dependencies
+9. **Design System**: Consistent color scheme với dark mode support ⭐
+10. **Real-time Events**: SignalR integration cho group events và status updates ⭐
 
-Đây là một Facebook clone hoàn chỉnh với đầy đủ tính năng social media và messaging system, sẵn sàng cho production deployment.
+## Group Chat Features Chi Tiết ⭐ **MỚI**
+
+### **UI Components**
+
+- **MessengerDropdown**:
+
+  - Filter tabs (All, Private, Groups)
+  - Create Group button
+  - Group-specific display với member count
+  - Integrated modal management
+
+- **CreateGroupModal**:
+
+  - Two-step wizard (Group Details → Add Members)
+  - User search và selection interface
+  - Group settings configuration
+  - Real-time validation
+
+- **GroupSettingsModal**:
+
+  - Tabbed interface (General, Members, Permissions)
+  - Member management với role-based actions
+  - Group settings update
+  - Invite link generation
+  - Permission overview
+
+- **MessageList**:
+  - Group message styling với sender names
+  - Role indicators (Crown cho admin, Shield cho moderator)
+  - Group-specific avatars và layouts
+
+### **Real-time Integration**
+
+- **SignalR Events**:
+  - `GroupMemberAdded/Removed`
+  - `GroupMemberPromoted`
+  - `GroupUpdated`
+  - `UserJoinedGroup/LeftGroup`
+  - Automatic group join/leave handling
+
+### **Design System**
+
+- **Color Consistency**: Synchronized với project's design system
+- **Theme Support**: Responsive color scheme cho dark/light mode
+- **Component Reusability**: Extensible UI component architecture
+
+Đây là một Facebook clone hoàn chỉnh với đầy đủ tính năng social media, messaging system và **comprehensive group chat functionality**, sẵn sàng cho production deployment.
 
 ---
 
@@ -232,6 +334,7 @@ Client → HTTP POST → MessagesController
 ### Database Schema
 
 **Core Tables:**
+
 - **users** - Thông tin người dùng, online status, SSO support
 - **messages** - Tin nhắn chính, support reply, content types
 - **attachments** - File đính kèm (images, documents, archives)
@@ -239,6 +342,7 @@ Client → HTTP POST → MessagesController
 - **message_status** - Message delivery status tracking
 
 **Group Chat Tables:**
+
 - **conversations** - Group conversations với metadata
 - **conversation_participants** - Group members với roles
 - **group_permissions** - Role-based access control system
@@ -388,12 +492,14 @@ chat-server/
 ### Server → Client Events
 
 **Messaging Events:**
+
 - `ReceiveMessage` - Tin nhắn mới (private/public)
 - `ReceiveGroupMessage` - Tin nhắn group mới
 - `ReceiveReaction` - Reaction mới
 - `RemoveReaction` - Xóa reaction
 
 **Group Events:**
+
 - `GroupCreated` - Group mới được tạo
 - `GroupUpdated` - Thông tin group thay đổi
 - `GroupDeleted` - Group bị xóa
@@ -404,11 +510,13 @@ chat-server/
 - `GroupJoinRequestHandled` - Request được approve/reject
 
 **Presence Events:**
+
 - `UserOnline/UserOffline` - Global online status
 - `UserJoinedGroup/UserLeftGroup` - Group presence
 - `GroupMemberOnline/GroupMemberOffline` - Member status trong group
 
 **Video Call Events:**
+
 - `ReceiveCallOffer/Answer` - WebRTC signaling
 - `ReceiveIceCandidate` - ICE candidate exchange
 - `CallEnded` - Cuộc gọi kết thúc
@@ -659,6 +767,6 @@ docker run -p 5000:80 chat-server   # Run container
 ✅ **Real-time Group Events** - Live notifications cho tất cả group activities  
 ✅ **Group File Sharing** - Attachments trong group messages  
 ✅ **Member Presence** - Online/offline tracking trong groups  
-✅ **Group Statistics** - Member counts, activity analytics  
+✅ **Group Statistics** - Member counts, activity analytics
 
 **All features are production-ready với comprehensive API documentation và real-time SignalR events!**
