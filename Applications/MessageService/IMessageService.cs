@@ -14,6 +14,6 @@ public interface IMessageService
     /// <param name="request">Dữ liệu đầu vào từ controller.</param>
     /// <returns>Kết quả xử lý nghiệp vụ.</returns>
     Task<MessageServiceResult> SendMessageAsync(SendMessageRequest request);
-    Task<MessageServiceResult> GetSyncMessages(int conId, long mesLastId);
+    Task<MessageServiceResult> GetSyncMessages(int conId, int mesLastId);
 
 }

@@ -23,6 +23,20 @@ namespace ChatServer.Repositories.Reaction
             return await _dbConnection.QueryAsync<MessageReaction>(sql, new { MessageId = messageId });
         }
 
+        public async Task<MessageReaction> AddReactionAsync(int messageId, int userId, string emoji)
+        {
+            var reaction = new MessageReaction
+            {
+                message_id = messageId,
+                user_id = userId,
+                emoji = emoji,
+                reacted_at = DateTime.UtcNow
+            };
+
+            reaction.id = await InsertAsync(reaction);
+            return reaction;
+        }
+
         public async Task<bool> RemoveReactionAsync(int messageId, int userId, string emoji)
         {
             var sql = $"DELETE FROM {_tableName} WHERE message_id = @MessageId AND user_id = @UserId AND emoji = @Emoji";

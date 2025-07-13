@@ -13,7 +13,7 @@ public interface IMessageRepo : IBaseRepository<Message>
     Task<IEnumerable<Message>> GetMessagesByConversationIdAsync(string conversationId);
     Task<Message> InsertMessageAsync(Message message);
 
-    Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, long lastMessageId);
-    Task<Message?> GetMessageWithDetailsAsync(long messageId);
+    Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, int lastMessageId);
+    Task<Message?> GetMessageWithDetailsAsync(int messageId);
 
 }

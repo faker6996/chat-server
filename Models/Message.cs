@@ -12,7 +12,7 @@ namespace ChatServer.Models
         /// ID chính của tin nhắn trong database (Primary Key).
         /// </summary>
         [Key]
-        public long id { get; set; }
+        public int id { get; set; }
 
         /// <summary>
         /// ID của cuộc hội thoại, giúp nhóm các tin nhắn lại.

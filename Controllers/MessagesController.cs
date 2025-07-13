@@ -39,7 +39,7 @@ public class MessagesController : BaseApiController
     }
 
     [HttpGet("sync")]
-    public async Task<IActionResult> SyncMessages([FromQuery] int conversationId, [FromQuery] long lastMessageId)
+    public async Task<IActionResult> SyncMessages([FromQuery] int conversationId, [FromQuery] int lastMessageId)
     {
         // Bạn có thể thêm logic kiểm tra xem người dùng hiện tại có thuộc về conversationId này không để tăng bảo mật
 

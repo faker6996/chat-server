@@ -7,7 +7,7 @@ namespace ChatServer.Models
     public class User
     {
         [Key]
-        public long id { get; set; }
+        public int id { get; set; }
 
         public string? name { get; set; }
 
@@ -24,6 +24,7 @@ namespace ChatServer.Models
         public string? address { get; set; }
 
         public DateTime created_at { get; set; } = DateTime.UtcNow;
+        public DateTime updated_at { get; set; } = DateTime.UtcNow;
         public DateTime last_seen { get; set; } = DateTime.UtcNow;
 
         public bool is_sso { get; set; }

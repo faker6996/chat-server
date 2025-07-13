@@ -1,10 +1,11 @@
 using ChatServer.Models;
+using ChatServer.Repositories.Base;
 
 namespace ChatServer.Repositories.Attachment
 {
-    public interface IAttachmentRepo
+    public interface IAttachmentRepo : IBaseRepository<Models.Attachment>
     {
         Task<long> CreateAsync(Models.Attachment attachment);
-        Task<List<Models.Attachment>> GetByMessageIdAsync(long messageId);
+        Task<List<Models.Attachment>> GetByMessageIdAsync(int messageId);
     }
 }

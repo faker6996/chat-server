@@ -7,33 +7,46 @@ using System.Text;
 
 namespace ChatServer.Repositories.Group;
 
+// Simple concrete implementation for ConversationParticipant
+public class ConversationParticipantRepository : BaseRepository<ConversationParticipant>
+{
+    public ConversationParticipantRepository(IDbConnection dbConnection) : base(dbConnection) { }
+}
+
+// Simple concrete implementation for GroupJoinRequest
+public class GroupJoinRequestRepository : BaseRepository<GroupJoinRequest>
+{
+    public GroupJoinRequestRepository(IDbConnection dbConnection) : base(dbConnection) { }
+}
+
 public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
 {
+    private readonly ConversationParticipantRepository _participantRepo;
+    private readonly GroupJoinRequestRepository _joinRequestRepo;
+
     public GroupRepository(IDbConnection connection) : base(connection)
     {
+        _participantRepo = new ConversationParticipantRepository(connection);
+        _joinRequestRepo = new GroupJoinRequestRepository(connection);
     }
 
     // Group CRUD operations
     public async Task<Conversation> CreateGroupAsync(CreateGroupRequest request, int createdBy)
     {
-        var sql = @"
-            INSERT INTO conversations (is_group, name, description, avatar_url, max_members, is_public, require_approval, created_by, created_at)
-            VALUES (@IsGroup, @Name, @Description, @AvatarUrl, @MaxMembers, @IsPublic, @RequireApproval, @CreatedBy, @CreatedAt)
-            RETURNING *";
-            
-        var conversation = await _dbConnection.QuerySingleAsync<Conversation>(sql, new
+        var conversation = new Conversation
         {
-            IsGroup = true,
-            Name = request.name,
-            Description = request.description,
-            AvatarUrl = request.avatar_url,
-            MaxMembers = request.max_members,
-            IsPublic = request.is_public,
-            RequireApproval = request.require_approval,
-            CreatedBy = createdBy,
-            CreatedAt = DateTime.UtcNow
-        });
-        
+            is_group = true,
+            name = request.name,
+            description = request.description,
+            avatar_url = request.avatar_url,
+            max_members = request.max_members,
+            is_public = request.is_public,
+            require_approval = request.require_approval,
+            created_by = createdBy,
+            created_at = DateTime.UtcNow
+        };
+
+        conversation.id = await InsertAsync(conversation);
         return conversation;
     }
 
@@ -44,7 +57,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             FROM conversations c
             LEFT JOIN users u ON c.created_by = u.id
             WHERE c.id = @GroupId AND c.is_group = true";
-            
+
         return await _dbConnection.QuerySingleOrDefaultAsync<Conversation>(sql, new { GroupId = groupId });
     }
 
@@ -57,14 +70,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
                 u.id as creator_id, u.name as creator_name, u.avatar_url as creator_avatar,
                 cp.role as user_role,
                 (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as member_count,
-                (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id AND is_online = true) as online_count
+                (SELECT COUNT(*) FROM conversation_participants cp2 JOIN users u2 ON cp2.user_id = u2.id WHERE cp2.conversation_id = c.id AND u2.is_active = true) as online_count
             FROM conversations c
             LEFT JOIN users u ON c.created_by = u.id
             LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = @UserId
             WHERE c.id = @GroupId AND c.is_group = true";
 
-        var result = await _dbConnection.QuerySingleOrDefaultAsync<dynamic>(sql, new { GroupId = groupId, UserId = currentUserId });
-        
+        var result = await _dbConnection.QuerySingleOrDefaultAsync<GroupInfoQueryResult>(sql, new { GroupId = groupId, UserId = currentUserId });
+
         if (result == null) return null;
 
         return new GroupInfoResponse
@@ -92,59 +105,36 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
 
     public async Task<bool> UpdateGroupAsync(int groupId, UpdateGroupRequest request)
     {
-        var updates = new List<string>();
-        var parameters = new DynamicParameters();
-        parameters.Add("GroupId", groupId);
+        var updateFields = new Dictionary<string, object>();
 
         if (!string.IsNullOrEmpty(request.name))
-        {
-            updates.Add("name = @Name");
-            parameters.Add("Name", request.name);
-        }
+            updateFields["name"] = request.name;
 
         if (request.description != null)
-        {
-            updates.Add("description = @Description");
-            parameters.Add("Description", request.description);
-        }
+            updateFields["description"] = request.description;
 
         if (request.avatar_url != null)
-        {
-            updates.Add("avatar_url = @AvatarUrl");
-            parameters.Add("AvatarUrl", request.avatar_url);
-        }
+            updateFields["avatar_url"] = request.avatar_url;
 
         if (request.is_public.HasValue)
-        {
-            updates.Add("is_public = @IsPublic");
-            parameters.Add("IsPublic", request.is_public.Value);
-        }
+            updateFields["is_public"] = request.is_public.Value;
 
         if (request.require_approval.HasValue)
-        {
-            updates.Add("require_approval = @RequireApproval");
-            parameters.Add("RequireApproval", request.require_approval.Value);
-        }
+            updateFields["require_approval"] = request.require_approval.Value;
 
         if (request.max_members.HasValue)
-        {
-            updates.Add("max_members = @MaxMembers");
-            parameters.Add("MaxMembers", request.max_members.Value);
-        }
+            updateFields["max_members"] = request.max_members.Value;
 
-        if (!updates.Any()) return true;
+        if (updateFields.Count == 0) return true;
 
-        var sql = $"UPDATE conversations SET {string.Join(", ", updates)} WHERE id = @GroupId";
-        var affected = await _dbConnection.ExecuteAsync(sql, parameters);
-        return affected > 0;
+        return await UpdatePartialAsync(groupId, updateFields);
     }
 
     public async Task<bool> DeleteGroupAsync(int groupId)
     {
         // This will cascade delete all related data due to database constraints
-        var sql = "DELETE FROM conversations WHERE id = @GroupId AND is_group = true";
-        var affected = await _dbConnection.ExecuteAsync(sql, new { GroupId = groupId });
-        return affected > 0;
+        // Note: Base DeleteAsync only checks by ID, so make sure groupId is a valid group
+        return await DeleteAsync(groupId);
     }
 
     public async Task<List<Conversation>> GetUserGroupsAsync(int userId)
@@ -155,7 +145,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             INNER JOIN conversation_participants cp ON c.id = cp.conversation_id
             WHERE cp.user_id = @UserId AND c.is_group = true
             ORDER BY c.created_at DESC";
-            
+
         var result = await _dbConnection.QueryAsync<Conversation>(sql, new { UserId = userId });
         return result.ToList();
     }
@@ -168,14 +158,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
                 c.is_public, c.require_approval, c.invite_link, c.created_at,
                 cp.role as user_role,
                 (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as member_count,
-                (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id AND is_online = true) as online_count
+                (SELECT COUNT(*) FROM conversation_participants cp2 JOIN users u2 ON cp2.user_id = u2.id WHERE cp2.conversation_id = c.id AND u2.is_active = true) as online_count
             FROM conversations c
             INNER JOIN conversation_participants cp ON c.id = cp.conversation_id
             WHERE cp.user_id = @UserId AND c.is_group = true
             ORDER BY c.created_at DESC";
 
-        var results = await _dbConnection.QueryAsync<dynamic>(sql, new { UserId = userId });
-        
+        var results = await _dbConnection.QueryAsync<UserGroupsQueryResult>(sql, new { UserId = userId });
+
         return results.Select(r => new GroupInfoResponse
         {
             id = r.id,
@@ -199,7 +189,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT 
                 u.id as user_id, u.name, u.user_name, u.email, u.avatar_url,
-                cp.role, cp.joined_at, cp.last_seen_at, cp.is_online
+                cp.role, cp.joined_at, cp.last_seen_at, u.is_active as is_online
             FROM conversation_participants cp
             INNER JOIN users u ON cp.user_id = u.id
             WHERE cp.conversation_id = @GroupId
@@ -220,7 +210,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT 
                 u.id as user_id, u.name, u.user_name, u.email, u.avatar_url,
-                cp.role, cp.joined_at, cp.last_seen_at, cp.is_online
+                cp.role, cp.joined_at, cp.last_seen_at, u.is_active as is_online
             FROM conversation_participants cp
             INNER JOIN users u ON cp.user_id = u.id
             WHERE cp.conversation_id = @GroupId AND cp.user_id = @UserId";
@@ -230,20 +220,16 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
 
     public async Task<bool> AddMemberAsync(int groupId, int userId, string role = "member")
     {
-        var sql = @"
-            INSERT INTO conversation_participants (conversation_id, user_id, joined_at, role, is_online)
-            VALUES (@GroupId, @UserId, @JoinedAt, @Role, false)
-            ON CONFLICT (conversation_id, user_id) DO NOTHING";
-            
-        var affected = await _dbConnection.ExecuteAsync(sql, new
+        var participant = new ConversationParticipant
         {
-            GroupId = groupId,
-            UserId = userId,
-            JoinedAt = DateTime.UtcNow,
-            Role = role
-        });
-        
-        return affected > 0;
+            conversation_id = groupId,
+            user_id = userId,
+            joined_at = DateTime.UtcNow,
+            role = role
+        };
+
+        var id = await _participantRepo.InsertAsync(participant);
+        return id > 0;
     }
 
     public async Task<bool> RemoveMemberAsync(int groupId, int userId)
@@ -259,7 +245,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             UPDATE conversation_participants 
             SET role = @Role 
             WHERE conversation_id = @GroupId AND user_id = @UserId";
-            
+
         var affected = await _dbConnection.ExecuteAsync(sql, new { GroupId = groupId, UserId = userId, Role = role });
         return affected > 0;
     }
@@ -269,7 +255,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT COUNT(1) FROM conversation_participants 
             WHERE conversation_id = @GroupId AND user_id = @UserId";
-            
+
         var count = await _dbConnection.QuerySingleAsync<int>(sql, new { GroupId = groupId, UserId = userId });
         return count > 0;
     }
@@ -279,7 +265,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT role FROM conversation_participants 
             WHERE conversation_id = @GroupId AND user_id = @UserId";
-            
+
         return await _dbConnection.QuerySingleOrDefaultAsync<string>(sql, new { GroupId = groupId, UserId = userId });
     }
 
@@ -287,17 +273,17 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     {
         var sql = @"
             UPDATE conversation_participants 
-            SET is_online = @IsOnline, last_seen_at = @LastSeen
+            SET last_seen_at = @LastSeen
             WHERE conversation_id = @GroupId AND user_id = @UserId";
-            
-        var affected = await _dbConnection.ExecuteAsync(sql, new 
-        { 
-            GroupId = groupId, 
-            UserId = userId, 
+
+        var affected = await _dbConnection.ExecuteAsync(sql, new
+        {
+            GroupId = groupId,
+            UserId = userId,
             IsOnline = isOnline,
             LastSeen = DateTime.UtcNow
         });
-        
+
         return affected > 0;
     }
 
@@ -320,8 +306,8 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             WHERE gjr.conversation_id = @GroupId AND gjr.status = 'pending'
             ORDER BY gjr.requested_at";
 
-        var results = await _dbConnection.QueryAsync<dynamic>(sql, new { GroupId = groupId });
-        
+        var results = await _dbConnection.QueryAsync<PendingRequestsQueryResult>(sql, new { GroupId = groupId });
+
         return results.Select(r => new JoinRequestResponse
         {
             id = r.id,
@@ -356,8 +342,8 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             LEFT JOIN users r ON gjr.reviewed_by = r.id
             WHERE gjr.id = @RequestId";
 
-        var result = await _dbConnection.QuerySingleOrDefaultAsync<dynamic>(sql, new { RequestId = requestId });
-        
+        var result = await _dbConnection.QuerySingleOrDefaultAsync<JoinRequestQueryResult>(sql, new { RequestId = requestId });
+
         if (result == null) return null;
 
         return new JoinRequestResponse
@@ -380,49 +366,37 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             },
             reviewer = result.reviewed_by != null ? new UserResponse
             {
-                id = result.reviewed_by,
-                name = result.reviewer_name
+                id = result.reviewed_by ?? 0,
+                name = result.reviewer_name ?? ""
             } : null
         };
     }
 
     public async Task<int> CreateJoinRequestAsync(int groupId, int userId, string? message)
     {
-        var sql = @"
-            INSERT INTO group_join_requests (conversation_id, user_id, message, requested_at)
-            VALUES (@GroupId, @UserId, @Message, @RequestedAt)
-            ON CONFLICT (conversation_id, user_id) 
-            DO UPDATE SET message = @Message, requested_at = @RequestedAt, status = 'pending'
-            RETURNING id";
-            
-        var requestId = await _dbConnection.QuerySingleAsync<int>(sql, new
+        var joinRequest = new GroupJoinRequest
         {
-            GroupId = groupId,
-            UserId = userId,
-            Message = message,
-            RequestedAt = DateTime.UtcNow
-        });
-        
-        return requestId;
+            conversation_id = groupId,
+            user_id = userId,
+            message = message,
+            requested_at = DateTime.UtcNow,
+            status = "pending"
+        };
+
+        return await _joinRequestRepo.InsertAsync(joinRequest);
     }
 
     public async Task<bool> HandleJoinRequestAsync(int requestId, string action, int reviewedBy, string? reason)
     {
-        var sql = @"
-            UPDATE group_join_requests 
-            SET status = @Status, reviewed_by = @ReviewedBy, reviewed_at = @ReviewedAt, reason = @Reason
-            WHERE id = @RequestId";
-            
-        var affected = await _dbConnection.ExecuteAsync(sql, new
+        var updateFields = new Dictionary<string, object>
         {
-            RequestId = requestId,
-            Status = action == "approve" ? "approved" : "rejected",
-            ReviewedBy = reviewedBy,
-            ReviewedAt = DateTime.UtcNow,
-            Reason = reason
-        });
-        
-        return affected > 0;
+            ["status"] = action == "approve" ? "approved" : "rejected",
+            ["reviewed_by"] = reviewedBy,
+            ["reviewed_at"] = DateTime.UtcNow,
+            ["reason"] = reason
+        };
+
+        return await _joinRequestRepo.UpdatePartialAsync(requestId, updateFields);
     }
 
     public async Task<bool> HasPendingRequestAsync(int groupId, int userId)
@@ -430,7 +404,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT COUNT(1) FROM group_join_requests 
             WHERE conversation_id = @GroupId AND user_id = @UserId AND status = 'pending'";
-            
+
         var count = await _dbConnection.QuerySingleAsync<int>(sql, new { GroupId = groupId, UserId = userId });
         return count > 0;
     }
@@ -440,16 +414,15 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     {
         var sql = "SELECT invite_link FROM conversations WHERE id = @GroupId";
         var existingLink = await _dbConnection.QuerySingleOrDefaultAsync<string>(sql, new { GroupId = groupId });
-        
+
         if (!string.IsNullOrEmpty(existingLink))
         {
             return existingLink;
         }
-        
+
         var newCode = await GenerateUniqueInviteCodeAsync();
-        var updateSql = "UPDATE conversations SET invite_link = @InviteLink WHERE id = @GroupId";
-        await _dbConnection.ExecuteAsync(updateSql, new { GroupId = groupId, InviteLink = newCode });
-        
+        await UpdatePartialAsync(groupId, new { invite_link = newCode });
+
         return newCode;
     }
 
@@ -462,9 +435,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     public async Task<bool> RegenerateInviteLinkAsync(int groupId)
     {
         var newCode = await GenerateUniqueInviteCodeAsync();
-        var sql = "UPDATE conversations SET invite_link = @InviteLink WHERE id = @GroupId";
-        var affected = await _dbConnection.ExecuteAsync(sql, new { GroupId = groupId, InviteLink = newCode });
-        return affected > 0;
+        return await UpdatePartialAsync(groupId, new { invite_link = newCode });
     }
 
     // Permissions
@@ -472,10 +443,10 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     {
         var userRole = await GetUserRoleInGroupAsync(groupId, userId);
         if (userRole == null) return false;
-        
+
         // Admins always have all permissions
         if (userRole == "admin") return true;
-        
+
         var sql = @"
             SELECT COUNT(1) FROM group_permissions 
             WHERE conversation_id = @GroupId 
@@ -483,14 +454,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             AND (required_role = @UserRole OR 
                  (required_role = 'member' AND @UserRole IN ('moderator', 'admin')) OR
                  (required_role = 'moderator' AND @UserRole = 'admin'))";
-            
+
         var hasPermission = await _dbConnection.QuerySingleAsync<int>(sql, new
         {
             GroupId = groupId,
             Permission = permission,
             UserRole = userRole
         });
-        
+
         return hasPermission > 0;
     }
 
@@ -498,7 +469,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     {
         var userRole = await GetUserRoleInGroupAsync(groupId, userId);
         if (userRole == null) return new List<string>();
-        
+
         if (userRole == "admin")
         {
             // Admins have all permissions
@@ -506,14 +477,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             var allPermissions = await _dbConnection.QueryAsync<string>(allPermissionsSql, new { GroupId = groupId });
             return allPermissions.ToList();
         }
-        
+
         var sql = @"
             SELECT DISTINCT permission_type FROM group_permissions 
             WHERE conversation_id = @GroupId 
             AND (required_role = @UserRole OR 
                  (required_role = 'member' AND @UserRole IN ('moderator', 'admin')) OR
                  (required_role = 'moderator' AND @UserRole = 'admin'))";
-            
+
         var permissions = await _dbConnection.QueryAsync<string>(sql, new { GroupId = groupId, UserRole = userRole });
         return permissions.ToList();
     }
@@ -533,14 +504,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             // Delete existing permissions
             var deleteSql = "DELETE FROM group_permissions WHERE conversation_id = @GroupId";
             await _dbConnection.ExecuteAsync(deleteSql, new { GroupId = groupId }, transaction);
-            
+
             // Insert new permissions
             foreach (var permission in permissions)
             {
                 var insertSql = @"
                     INSERT INTO group_permissions (conversation_id, permission_type, required_role, created_at)
                     VALUES (@ConversationId, @PermissionType, @RequiredRole, @CreatedAt)";
-                    
+
                 await _dbConnection.ExecuteAsync(insertSql, new
                 {
                     ConversationId = groupId,
@@ -549,7 +520,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
                     CreatedAt = DateTime.UtcNow
                 }, transaction);
             }
-            
+
             transaction.Commit();
             return true;
         }
@@ -566,14 +537,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         var sql = @"
             SELECT 
                 COUNT(*) as total_members,
-                COUNT(CASE WHEN is_online = true THEN 1 END) as online_members,
+                COUNT(CASE WHEN u.is_active = true THEN 1 END) as online_members,
                 COUNT(CASE WHEN role = 'admin' THEN 1 END) as admin_count,
                 COUNT(CASE WHEN role = 'moderator' THEN 1 END) as moderator_count
             FROM conversation_participants 
             WHERE conversation_id = @GroupId";
-            
-        var stats = await _dbConnection.QuerySingleAsync<dynamic>(sql, new { GroupId = groupId });
-        
+
+        var stats = await _dbConnection.QuerySingleAsync<GroupStatsQueryResult>(sql, new { GroupId = groupId });
+
         return new Dictionary<string, int>
         {
             ["total_members"] = stats.total_members,
@@ -586,9 +557,10 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
     public async Task<List<int>> GetOnlineMembersAsync(int groupId)
     {
         var sql = @"
-            SELECT user_id FROM conversation_participants 
-            WHERE conversation_id = @GroupId AND is_online = true";
-            
+            SELECT cp.user_id FROM conversation_participants cp
+            INNER JOIN users u ON cp.user_id = u.id
+            WHERE cp.conversation_id = @GroupId AND u.is_active = true";
+
         var userIds = await _dbConnection.QueryAsync<int>(sql, new { GroupId = groupId });
         return userIds.ToList();
     }
@@ -598,15 +570,15 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         // Check if user is already a member
         if (await IsUserInGroupAsync(groupId, userId))
             return false;
-            
+
         // Check if group exists and get max members
         var group = await GetGroupByIdAsync(groupId);
         if (group == null) return false;
-        
+
         // Check current member count
         var currentCount = await GetGroupMemberCountAsync(groupId);
         if (currentCount >= group.max_members) return false;
-        
+
         return true;
     }
 
@@ -616,7 +588,7 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         bool exists;
         int attempts = 0;
         const int maxAttempts = 10;
-        
+
         do
         {
             code = GenerateRandomCode();
@@ -624,14 +596,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
             var count = await _dbConnection.QuerySingleAsync<int>(sql, new { Code = code });
             exists = count > 0;
             attempts++;
-        } 
+        }
         while (exists && attempts < maxAttempts);
-        
+
         if (exists)
         {
             throw new InvalidOperationException("Failed to generate unique invite code after multiple attempts");
         }
-        
+
         return code;
     }
 
@@ -641,14 +613,14 @@ public class GroupRepository : BaseRepository<Conversation>, IGroupRepository
         using var rng = RandomNumberGenerator.Create();
         var result = new char[8];
         var bytes = new byte[8];
-        
+
         rng.GetBytes(bytes);
-        
+
         for (int i = 0; i < 8; i++)
         {
             result[i] = chars[bytes[i] % chars.Length];
         }
-        
+
         return new string(result);
     }
 }

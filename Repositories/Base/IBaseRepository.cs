@@ -2,9 +2,9 @@ namespace ChatServer.Repositories.Base;
 
 public interface IBaseRepository<T> where T : class
 {
-    Task<T?> GetByIdAsync(long id);
+    Task<T?> GetByIdAsync(int id);
     Task<IEnumerable<T>> GetAllAsync();
-    Task<long> InsertAsync(T entity);
+    Task<int> InsertAsync(T entity);
     Task<bool> UpdateAsync(T entity);
-    Task<bool> DeleteAsync(long id);
+    Task<bool> DeleteAsync(int id);
 }

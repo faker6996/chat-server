@@ -18,8 +18,6 @@ public class ConversationParticipant
 
     public string role { get; set; } = "member"; // admin, moderator, member
 
-    public bool is_online { get; set; } = false;
-
     // Navigation properties (not mapped)
     [NotMapped]
     public User? user { get; set; }

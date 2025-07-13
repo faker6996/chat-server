@@ -41,8 +41,7 @@ namespace ChatServer.Controllers
                     reacted_at = DateTime.UtcNow
                 };
 
-                var reactionId = await _reactionRepo.InsertAsync(reaction);
-                reaction.id = (int)reactionId;
+                reaction.id = await _reactionRepo.InsertAsync(reaction);
 
                 _logger.LogInformation("Broadcasting reaction add - MessageId: {MessageId}, UserId: {UserId}, Emoji: {Emoji}", 
                     request.message_id, request.user_id, request.emoji);

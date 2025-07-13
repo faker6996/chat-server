@@ -14,10 +14,10 @@ namespace ChatServer.Repositories.Attachment
         public async Task<long> CreateAsync(Models.Attachment attachment)
         {
             attachment.created_at = DateTime.UtcNow;
-            return await base.InsertAsync(attachment);
+            return await base.InsertWithLongIdAsync(attachment);
         }
 
-        public async Task<List<Models.Attachment>> GetByMessageIdAsync(long messageId)
+        public async Task<List<Models.Attachment>> GetByMessageIdAsync(int messageId)
         {
             var sql = "SELECT * FROM attachments WHERE message_id = @messageId ORDER BY created_at";
             var attachments = await _dbConnection.QueryAsync<Models.Attachment>(sql, new { messageId });

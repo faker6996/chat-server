@@ -4,7 +4,7 @@ namespace ChatServer.Models
 {
     public class MessageResponse
     {
-        public long id { get; set; }
+        public int id { get; set; }
         public int conversation_id { get; set; }
         public int sender_id { get; set; }
         public required string content { get; set; }

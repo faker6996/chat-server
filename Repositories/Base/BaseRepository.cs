@@ -43,7 +43,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
         return keyProperty?.Name ?? "id"; // Mặc định là 'id'
     }
 
-    public virtual async Task<T?> GetByIdAsync(long id)
+    public virtual async Task<T?> GetByIdAsync(int id)
     {
         var sql = $"SELECT * FROM {_tableName} WHERE {GetKeyColumnName()} = @Id";
         return await _dbConnection.QueryFirstOrDefaultAsync<T>(sql, new { Id = id });
@@ -55,7 +55,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
         return await _dbConnection.QueryAsync<T>(sql);
     }
 
-    public virtual async Task<long> InsertAsync(T entity)
+    public virtual async Task<int> InsertAsync(T entity)
     {
         var properties = GetMappableProperties().Where(p => p.GetCustomAttribute<KeyAttribute>() == null);
         var columns = string.Join(", ", properties.Select(p => p.Name));
@@ -63,8 +63,9 @@ public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
 
         var sql = $"INSERT INTO {_tableName} ({columns}) VALUES ({values}) RETURNING {GetKeyColumnName()};";
 
-        return await _dbConnection.ExecuteScalarAsync<long>(sql, entity);
+        return await _dbConnection.ExecuteScalarAsync<int>(sql, entity);
     }
+
 
     public virtual async Task<bool> UpdateAsync(T entity)
     {
@@ -99,7 +100,49 @@ public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
     }
 
 
-    public virtual async Task<bool> DeleteAsync(long id)
+    public virtual async Task<bool> DeleteAsync(int id)
+    {
+        var sql = $"DELETE FROM {_tableName} WHERE {GetKeyColumnName()} = @Id";
+        var rowsAffected = await _dbConnection.ExecuteAsync(sql, new { Id = id });
+        return rowsAffected > 0;
+    }
+
+    // Special methods for attachments with long IDs
+    public virtual async Task<T?> GetByLongIdAsync(long id)
+    {
+        var sql = $"SELECT * FROM {_tableName} WHERE {GetKeyColumnName()} = @Id";
+        return await _dbConnection.QueryFirstOrDefaultAsync<T>(sql, new { Id = id });
+    }
+
+    public virtual async Task<long> InsertWithLongIdAsync(T entity)
+    {
+        var properties = GetMappableProperties().Where(p => p.GetCustomAttribute<KeyAttribute>() == null);
+        var columns = string.Join(", ", properties.Select(p => p.Name));
+        var values = string.Join(", ", properties.Select(p => $"@{p.Name}"));
+
+        var sql = $"INSERT INTO {_tableName} ({columns}) VALUES ({values}) RETURNING {GetKeyColumnName()};";
+
+        return await _dbConnection.ExecuteScalarAsync<long>(sql, entity);
+    }
+
+    public virtual async Task<bool> UpdatePartialWithLongIdAsync(long id, object fieldsToUpdate)
+    {
+        var keyColumn = GetKeyColumnName();
+        var props = fieldsToUpdate.GetType().GetProperties();
+        if (!props.Any())
+            throw new ArgumentException("No fields to update");
+
+        var setClauses = string.Join(", ", props.Select(p => $"{ToSnakeCase(p.Name)} = @{p.Name}"));
+
+        var sql = $"UPDATE {_tableName} SET {setClauses} WHERE {keyColumn} = @Id";
+        var param = new DynamicParameters(fieldsToUpdate);
+        param.Add("Id", id);
+
+        var affected = await _dbConnection.ExecuteAsync(sql, param);
+        return affected > 0;
+    }
+
+    public virtual async Task<bool> DeleteWithLongIdAsync(long id)
     {
         var sql = $"DELETE FROM {_tableName} WHERE {GetKeyColumnName()} = @Id";
         var rowsAffected = await _dbConnection.ExecuteAsync(sql, new { Id = id });

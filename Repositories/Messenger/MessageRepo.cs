@@ -14,7 +14,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
 
     public async Task<Message> InsertMessageAsync(Message message)
     {
-        long newId = await InsertAsync(message);
+        int newId = await InsertAsync(message);
 
         Console.WriteLine($"Đã insert tin nhắn thành công với ID: {newId}");
 
@@ -30,7 +30,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
         return await _dbConnection.QueryAsync<Message>(sql, new { ConversationId = conversationId });
     }
 
-    public async Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, long lastMessageId)
+    public async Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, int lastMessageId)
     {
         // _tableName và _dbConnection được kế thừa từ BaseRepository
         var sql = $"SELECT * FROM {_tableName} " +
@@ -40,7 +40,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
         return await _dbConnection.QueryAsync<Message>(sql, new { ConversationId = conversationId, LastMessageId = lastMessageId });
     }
 
-    public async Task<Message?> GetMessageWithDetailsAsync(long messageId)
+    public async Task<Message?> GetMessageWithDetailsAsync(int messageId)
     {
         var sql = $@"
             SELECT 
@@ -54,7 +54,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
             LEFT JOIN {_tableName} rm ON m.reply_to_message_id = rm.id
             WHERE m.id = @MessageId";
 
-        var messageDictionary = new Dictionary<long, Message>();
+        var messageDictionary = new Dictionary<int, Message>();
         
         var result = await _dbConnection.QueryAsync<Message, dynamic, Message>(
             sql,

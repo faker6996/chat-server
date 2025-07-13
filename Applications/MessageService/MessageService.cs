@@ -109,10 +109,10 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task<MessageServiceResult> GetSyncMessages(int conId, long mesLastId)
+    public async Task<MessageServiceResult> GetSyncMessages(int conId, int mesLastId)
     {
         var listMes = await _messageRepo.GetMessagesAfterIdAsync(conId, mesLastId);
-        
+
         // Tạo MessageResponse với attachments
         var messageResponses = new List<MessageResponse>();
         foreach (var message in listMes)
@@ -133,7 +133,7 @@ public class MessageService : IMessageService
             };
             messageResponses.Add(messageResponse);
         }
-        
+
         return new MessageServiceResult(true, data: messageResponses);
     }
 }

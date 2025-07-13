@@ -8,7 +8,7 @@ namespace ChatServer.Models
         [Key]
         public long id { get; set; }
         
-        public long message_id { get; set; }
+        public int message_id { get; set; }
         
         public required string file_name { get; set; }
         

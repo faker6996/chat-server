@@ -25,15 +25,15 @@ namespace ChatServer.Repositories.Messenger
             if (isActive)
             {
                 // Khi người dùng online, chỉ cần cập nhật trạng thái is_active
-                await UpdatePartialAsync(userId, new { IsActive = isActive });
+                await UpdatePartialAsync(userId, new { is_active = isActive });
             }
             else
             {
                 // Khi người dùng offline, cập nhật cả is_active và last_seen
                 await UpdatePartialAsync(userId, new
                 {
-                    IsActive = isActive,
-                    LastSeen = DateTime.UtcNow // Ghi lại thời điểm cuối cùng hoạt động
+                    is_active = isActive,
+                    last_seen = DateTime.UtcNow // Ghi lại thời điểm cuối cùng hoạt động
                 });
             }
         }
