@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace ChatServer.SignalR.Hubs
 {
-    // [Authorize]
-    // Sửa lại để Hub sử dụng IChatHub cho client proxy
+    [Authorize]
     public class ChatHub : Hub<IChatHub>
     {
         private readonly IMessageService _messageService;
