@@ -15,6 +15,7 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddCorsPolicy();
 builder.Services.AddSignalRServices();
 builder.Services.AddRabbitMQ(builder.Configuration);
+builder.Services.AddValidation();
 
 // Build and configure app
 var app = builder.Build();

@@ -8,6 +8,8 @@ using ChatServer.Repositories.Reaction;
 using ChatServer.Services;
 using ChatServer.SignalR;
 using ChatServer.SignalR.Hubs;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
@@ -131,6 +133,13 @@ namespace ChatServer.Extensions
         {
             services.AddSignalR();
             services.AddSingleton<IUserIdProvider, NameUserIdProvider>();
+            return services;
+        }
+
+        public static IServiceCollection AddValidation(this IServiceCollection services)
+        {
+            services.AddFluentValidationAutoValidation();
+            services.AddValidatorsFromAssemblyContaining<Program>();
             return services;
         }
     }
