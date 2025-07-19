@@ -1,4 +1,4 @@
-using ChatServer.SignalR.Hubs;
+using ChatServer.Presentation.SignalR.Hubs;
 using ChatServer.Middleware;
 
 namespace ChatServer.Extensions
