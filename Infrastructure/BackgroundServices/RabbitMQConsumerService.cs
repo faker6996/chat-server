@@ -1,7 +1,7 @@
-using ChatServer.Applications; // <-- SỬ DỤNG
-using ChatServer.Models;
-using ChatServer.Repositories.Messenger; // <-- SỬ DỤNG
-using ChatServer.Repositories.Attachment;
+using ChatServer.Infrastructure.Services; // <-- SỬ DỤNG
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Messenger; // <-- SỬ DỤNG
+using ChatServer.Infrastructure.Repositories.Attachment;
 using Microsoft.Extensions.DependencyInjection; // <-- SỬ DỤNG cho IServiceScopeFactory
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;

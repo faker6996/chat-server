@@ -1,7 +1,7 @@
 using System.Data;
 using System.Reflection;
 using System.Text;
-using ChatServer.Repositories.Attributes;
+using ChatServer.Infrastructure.Repositories.Attributes;
 using Dapper;
 
 namespace ChatServer.Infrastructure.Repositories.Base;
