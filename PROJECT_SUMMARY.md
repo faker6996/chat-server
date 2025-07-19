@@ -313,23 +313,60 @@ npm run docker:*     # Docker operations cho các environments
 - RabbitMQ.Client (7.1.2)
 ```
 
-## Kiến Trúc Hệ Thống
+## Kiến Trúc Hệ Thống - Clean Architecture
+
+### Layered Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Presentation Layer                       │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │   Controllers   │  │   SignalR Hubs  │  │  Middleware │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                   Infrastructure Layer                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │   Repositories  │  │    Services     │  │  Background │ │
+│  │    (Data        │  │  (Application   │  │   Services  │ │
+│  │    Access)      │  │    Logic)       │  │             │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                      Core Layer                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
+│  │     Models      │  │   Constants     │  │   Configs   │ │
+│  │   (Entities     │  │    (Enums)      │  │ (Settings)  │ │
+│  │    & DTOs)      │  │                 │  │             │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Message Flow Architecture
 
 ```
-Client → HTTP POST → MessagesController
+Client → HTTP POST → MessagesController (Presentation)
                     ↓
-                MessageService (Business Logic)
+                MessageService (Infrastructure/Services)
                     ↓
                 MessagePublisher → RabbitMQ Exchange
                                         ↓
                             RabbitMQ Queue (durable)
                                         ↓
-                RabbitMQConsumerService ← Background Consumer
+                RabbitMQConsumerService ← Background Consumer (Infrastructure)
                     ↓
-            SignalR Hub → Connected Clients (Real-time)
+            SignalR Hub (Presentation) → Connected Clients (Real-time)
 ```
+
+### Clean Architecture Benefits
+
+- **Dependency Inversion**: Core không phụ thuộc vào Infrastructure
+- **Separation of Concerns**: Mỗi layer có trách nhiệm riêng biệt
+- **Testability**: Dễ dàng unit test với dependency injection
+- **Maintainability**: Code dễ bảo trì và mở rộng
+- **SOLID Principles**: Tuân thủ các nguyên tắc SOLID
 
 ### Database Schema
 
@@ -349,39 +386,78 @@ Client → HTTP POST → MessagesController
 - **group_join_requests** - Join request workflow
 - **pinned_messages** - Pinned messages trong groups
 
-## Cấu Trúc Thư Mục
+## Cấu Trúc Thư Mục - Clean Architecture
 
 ```
 chat-server/
-├── Applications/           # Application Services
-│   ├── IChatClientNotifier.cs
-│   ├── MessageService/     # Core business logic
-│   └── MessagePublisher/   # RabbitMQ publishing
-├── Controllers/            # HTTP API Endpoints
-│   ├── BaseApiController.cs
-│   ├── MessagesController.cs
-│   ├── ReactionsController.cs
-│   ├── UploadController.cs
-│   ├── GroupsController.cs        # Group management
-│   └── GroupJoinRequestsController.cs  # Join request workflow
-├── Models/                 # Data models & DTOs
-│   ├── Entity Models/      # User, Message, Attachment, MessageReaction, Conversation, GroupJoinRequest
-│   ├── Request DTOs/       # SendMessageRequest, ReactionRequest, CreateGroupRequest, UpdateGroupRequest
-│   └── Response DTOs/      # MessageResponse, ApiResponse<T>, GroupInfoResponse, GroupMemberResponse
-├── Repositories/           # Data Access Layer
-│   ├── Base/              # Generic repository pattern
-│   ├── Messenger/         # Message data access
-│   ├── Attachment/        # File attachment data
-│   ├── Reaction/          # Reaction data access
-│   ├── User/              # User data access
-│   └── Group/             # Group management data access
-├── SignalR/               # Real-time communication
-│   ├── Hubs/              # ChatHub với video calling
-│   └── Client notification services
-├── Services/              # Background services
-│   └── RabbitMQConsumerService.cs
-├── Configs/               # Configuration classes
-└── Constants/             # Enums và constants
+├── Core/                           # Core Domain Layer
+│   ├── Models/                     # Domain Entities & DTOs
+│   │   ├── Entity Models/          # User, Message, Attachment, MessageReaction, Conversation, GroupJoinRequest
+│   │   ├── Request DTOs/           # SendMessageRequest, ReactionRequest, CreateGroupRequest, UpdateGroupRequest
+│   │   └── Response DTOs/          # MessageResponse, ApiResponse<T>, GroupInfoResponse, GroupMemberResponse
+│   ├── Constants/                  # Domain constants
+│   │   └── MessageType.cs         # Message type enums
+│   └── Configs/                   # Configuration models
+│       └── RabbitMQOptions.cs     # RabbitMQ configuration
+├── Infrastructure/                 # Infrastructure Layer
+│   ├── Repositories/              # Data Access Layer
+│   │   ├── Base/                  # Generic repository pattern
+│   │   │   ├── BaseRepository.cs  # Generic CRUD operations
+│   │   │   └── IBaseRepository.cs # Repository interface
+│   │   ├── Attributes/            # ORM mapping attributes
+│   │   │   ├── TableAttribute.cs  # Table mapping
+│   │   │   ├── KeyAttribute.cs    # Primary key mapping
+│   │   │   └── NotMappedAttribute.cs # Ignore property mapping
+│   │   ├── Messenger/             # Message data access
+│   │   │   ├── MessageRepo.cs     # Message repository implementation
+│   │   │   └── IMessageRepo.cs    # Message repository interface
+│   │   ├── Attachment/            # File attachment data
+│   │   │   ├── AttachmentRepo.cs  # Attachment repository
+│   │   │   └── IAttachmentRepo.cs # Attachment interface
+│   │   ├── Reaction/              # Reaction data access
+│   │   │   ├── ReactionRepo.cs    # Reaction repository
+│   │   │   └── IReactionRepo.cs   # Reaction interface
+│   │   ├── User/                  # User data access
+│   │   │   ├── UserRepo.cs        # User repository
+│   │   │   └── IUserRepo.cs       # User interface
+│   │   ├── Group/                 # Group management data access
+│   │   │   ├── GroupRepository.cs # Group repository
+│   │   │   └── IGroupRepository.cs # Group interface
+│   │   └── MessagePublisher.cs    # RabbitMQ message publisher
+│   ├── Services/                  # Application Services
+│   │   ├── MessageService/        # Core business logic
+│   │   │   ├── MessageService.cs  # Message service implementation
+│   │   │   └── IMessageService.cs # Message service interface
+│   │   ├── MessagePublisher/      # RabbitMQ publishing
+│   │   │   └── IMessagePublisher.cs # Publisher interface
+│   │   └── IChatClientNotifier.cs # Client notification service
+│   └── BackgroundServices/        # Background services
+│       └── RabbitMQConsumerService.cs # RabbitMQ consumer
+├── Presentation/                  # Presentation Layer
+│   ├── Controllers/               # HTTP API Endpoints
+│   │   ├── BaseApiController.cs   # Base controller
+│   │   ├── MessagesController.cs  # Message endpoints
+│   │   ├── ReactionsController.cs # Reaction endpoints
+│   │   ├── UploadController.cs    # File upload endpoints
+│   │   ├── GroupsController.cs    # Group management endpoints
+│   │   └── GroupJoinRequestsController.cs # Join request workflow
+│   └── SignalR/                   # Real-time communication
+│       ├── Hubs/                  # SignalR hubs
+│       │   ├── ChatHub.cs         # Main chat hub với video calling
+│       │   ├── IChatHub.cs        # Hub interface
+│       │   └── IHubClient.cs      # Client interface
+│       ├── NameUserIdProvider.cs  # Custom user ID provider
+│       └── SignalRChatClientNotifier.cs # SignalR notification service
+├── Extensions/                    # Dependency Injection Extensions
+│   ├── ServiceCollectionExtensions.cs # Service registration
+│   └── WebApplicationExtensions.cs    # Application configuration
+├── Middleware/                    # Custom middleware
+│   └── GlobalExceptionHandlerMiddleware.cs # Global exception handling
+├── Validators/                    # Input validation
+│   ├── CreateGroupRequestValidator.cs # Group creation validation
+│   └── SendMessageRequestValidator.cs # Message validation
+├── uploads/                       # Static file storage
+└── Program.cs                     # Application entry point
 ```
 
 ## Tính Năng Chính
@@ -569,7 +645,24 @@ chat-server/
 3. **Reliability**: Durable queues, message acknowledgment
 4. **Scalability**: Multiple consumer instances supported
 
-## Repository Pattern Implementation
+## Repository Pattern Implementation - Clean Architecture
+
+### Clean Architecture Layers Implementation
+
+**Core Layer (Domain)**:
+- **Models**: Entities và DTOs không phụ thuộc vào database
+- **Constants**: Business constants và enums  
+- **Configs**: Configuration models
+
+**Infrastructure Layer**:
+- **Repositories**: Data access implementation với interfaces
+- **Services**: Application business logic
+- **BackgroundServices**: Message queue consumers
+
+**Presentation Layer**:
+- **Controllers**: HTTP API endpoints
+- **SignalR Hubs**: Real-time communication
+- **Middleware**: Cross-cutting concerns
 
 ### Base Repository Features
 
@@ -578,13 +671,22 @@ chat-server/
 - **Snake_case Conversion**: PostgreSQL naming convention
 - **Async Operations**: Non-blocking database calls
 - **Partial Updates**: Efficient field-level updates
+- **Dependency Injection**: Interface-based repository pattern
+- **Clean Separation**: Repository interfaces trong Core, implementations trong Infrastructure
 
 ### Specialized Repositories
 
-- **MessageRepo**: Complex queries cho conversations
-- **AttachmentRepo**: File metadata management
-- **ReactionRepo**: Duplicate checking, reaction management
-- **UserRepo**: Online status và last_seen tracking
+- **MessageRepo** (Infrastructure/Repositories/Messenger/): Complex queries cho conversations
+- **AttachmentRepo** (Infrastructure/Repositories/Attachment/): File metadata management
+- **ReactionRepo** (Infrastructure/Repositories/Reaction/): Duplicate checking, reaction management
+- **UserRepo** (Infrastructure/Repositories/User/): Online status và last_seen tracking
+- **GroupRepository** (Infrastructure/Repositories/Group/): Group management với role-based permissions
+
+### Dependency Injection Pattern
+
+- **ServiceCollectionExtensions**: Central service registration
+- **Interface Segregation**: Separate interfaces cho mỗi repository
+- **Lifetime Management**: Scoped lifetimes cho database connections
 
 ## SignalR Implementation
 
@@ -754,11 +856,26 @@ docker run -p 5000:80 chat-server   # Run container
 - **Project**: Chat Server Backend với Full Group Chat Support
 - **Framework**: .NET 9 + SignalR + RabbitMQ
 - **Database**: PostgreSQL với Group Chat schema
-- **Architecture**: Clean Architecture với Repository Pattern
+- **Architecture**: Clean Architecture với layered structure
+  - **Core Layer**: Domain models, constants, configurations
+  - **Infrastructure Layer**: Repositories, services, background services
+  - **Presentation Layer**: Controllers, SignalR hubs, middleware
+- **Design Patterns**: Repository Pattern, Dependency Injection, SOLID Principles
 - **Deployment**: Docker-ready với production configuration
-- **Latest Update**: Complete Group Chat implementation với role-based permissions, join requests, invite links, và real-time events
+- **Latest Update**: Restructured to Clean Architecture + Complete Group Chat implementation với role-based permissions, join requests, invite links, và real-time events
 
-## 🆕 **New Group Chat Features (Latest Update)**
+## 🆕 **Latest Updates**
+
+### **Clean Architecture Restructuring** 🏗️
+
+✅ **Layered Architecture** - Separated into Core, Infrastructure, và Presentation layers  
+✅ **Dependency Inversion** - Core không phụ thuộc vào Infrastructure  
+✅ **SOLID Principles** - Interface segregation và dependency injection  
+✅ **Better Organization** - Clear separation of concerns  
+✅ **Enhanced Testability** - Dễ dàng unit testing với mocked dependencies  
+✅ **Improved Maintainability** - Modular structure cho easy maintenance
+
+### **Group Chat Features** 💬
 
 ✅ **Group Management** - Create, update, delete groups  
 ✅ **Role-based Permissions** - Admin, Moderator, Member roles  
@@ -769,4 +886,4 @@ docker run -p 5000:80 chat-server   # Run container
 ✅ **Member Presence** - Online/offline tracking trong groups  
 ✅ **Group Statistics** - Member counts, activity analytics
 
-**All features are production-ready với comprehensive API documentation và real-time SignalR events!**
+**All features are production-ready với comprehensive API documentation, real-time SignalR events, và Clean Architecture implementation!**
