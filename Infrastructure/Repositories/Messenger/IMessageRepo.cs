@@ -15,5 +15,11 @@ public interface IMessageRepo : IBaseRepository<Message>
 
     Task<IEnumerable<Message>> GetMessagesAfterIdAsync(int conversationId, int lastMessageId);
     Task<Message?> GetMessageWithDetailsAsync(int messageId);
+    
+    // Conversation related methods
+    Task<Conversation?> GetConversationByIdAsync(int conversationId);
+    Task<Conversation?> GetPrivateConversationAsync(int userId1, int userId2);
+    Task<Conversation> CreateConversationAsync(Conversation conversation);
+    Task AddConversationParticipantAsync(int conversationId, int userId);
 
 }

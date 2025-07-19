@@ -11,9 +11,23 @@ namespace ChatServer.Validators
                 .GreaterThan(0)
                 .WithMessage("Sender ID must be greater than 0");
 
+            // Conversation ID bắt buộc cho tin nhắn nhóm, optional cho tin nhắn cá nhân
             RuleFor(x => x.conversation_id)
                 .GreaterThan(0)
-                .WithMessage("Conversation ID must be greater than 0");
+                .When(x => x.conversation_id.HasValue)
+                .WithMessage("Conversation ID must be greater than 0 when provided");
+
+            // Với tin nhắn nhóm: bắt buộc phải có conversation_id
+            RuleFor(x => x.conversation_id)
+                .NotEmpty()
+                .When(x => x.message_type == ChatServer.Core.Constants.MESSAGE_TYPE.GROUP)
+                .WithMessage("Conversation ID is required for group messages");
+
+            // Khi không có conversation_id thì bắt buộc phải có target_id
+            RuleFor(x => x.target_id)
+                .NotEmpty()
+                .When(x => !x.conversation_id.HasValue)
+                .WithMessage("Target ID is required when conversation ID is not provided");
 
             RuleFor(x => x.content)
                 .NotEmpty()

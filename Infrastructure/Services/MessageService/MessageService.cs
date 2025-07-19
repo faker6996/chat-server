@@ -27,14 +27,65 @@ public class MessageService : IMessageService
 
     public async Task<MessageServiceResult> SendMessageAsync(SendMessageRequest request)
     {
-        // 1️⃣ Validate nghiệp vụ
-        if ((request.message_type is MESSAGE_TYPE.PRIVATE or MESSAGE_TYPE.GROUP) &&
-            !request.target_id.HasValue)
+        // 1️⃣ Validate nghiệp vụ cơ bản
+        if (request.message_type == MESSAGE_TYPE.GROUP && !request.conversation_id.HasValue)
         {
-            return new MessageServiceResult(false, "TargetId is required for private or group messages.");
+            return new MessageServiceResult(false, "Conversation ID is required for group messages.");
         }
 
-        // 2️⃣ Xử lý logic tạo Routing key
+        if (!request.conversation_id.HasValue && !request.target_id.HasValue)
+        {
+            return new MessageServiceResult(false, "Either conversation_id or target_id must be provided.");
+        }
+
+        // 2️⃣ Xử lý conversation_id cho tin nhắn cá nhân
+        int conversationId;
+        if (request.conversation_id.HasValue)
+        {
+            conversationId = request.conversation_id.Value;
+            
+            // Kiểm tra conversation có tồn tại không
+            var existingConversation = await _messageRepo.GetConversationByIdAsync(conversationId);
+            if (existingConversation == null)
+            {
+                return new MessageServiceResult(false, $"Conversation with ID {conversationId} does not exist.");
+            }
+        }
+        else
+        {
+            // Tạo conversation mới cho tin nhắn cá nhân
+            if (request.message_type == MESSAGE_TYPE.PRIVATE && request.target_id.HasValue)
+            {
+                // Kiểm tra xem đã có conversation giữa sender và target chưa
+                var existingPrivateConv = await _messageRepo.GetPrivateConversationAsync(request.sender_id, request.target_id.Value);
+                if (existingPrivateConv != null)
+                {
+                    return new MessageServiceResult(false, $"Conversation between users already exists with ID {existingPrivateConv.id}.");
+                }
+
+                // Tạo conversation mới
+                var newConversation = new Conversation
+                {
+                    is_group = false,
+                    is_public = false,
+                    created_by = request.sender_id,
+                    created_at = DateTime.UtcNow
+                };
+                
+                var createdConv = await _messageRepo.CreateConversationAsync(newConversation);
+                conversationId = createdConv.id;
+                
+                // Thêm participants
+                await _messageRepo.AddConversationParticipantAsync(conversationId, request.sender_id);
+                await _messageRepo.AddConversationParticipantAsync(conversationId, request.target_id.Value);
+            }
+            else
+            {
+                return new MessageServiceResult(false, "Cannot create conversation for this message type.");
+            }
+        }
+
+        // 3️⃣ Xử lý logic tạo Routing key
         var routingKey = request.message_type switch
         {
             MESSAGE_TYPE.PRIVATE => $"chat.private.{request.target_id}",
@@ -42,7 +93,7 @@ public class MessageService : IMessageService
             _ => "chat.public.all"
         };
 
-        // 3️⃣ Xác định content_type dựa trên attachments
+        // 4️⃣ Xác định content_type dựa trên attachments
         var contentType = request.content_type;
         if (request.attachments != null && request.attachments.Count > 0)
         {
@@ -58,12 +109,12 @@ public class MessageService : IMessageService
             }
         }
 
-        // 4️⃣ Tạo đối tượng Message
+        // 5️⃣ Tạo đối tượng Message
         var msg = new Message
         {
             sender_id = request.sender_id,
             content = request.content,
-            conversation_id = request.conversation_id,
+            conversation_id = conversationId,
             message_type = request.message_type,
             content_type = contentType,
             target_id = request.target_id,
@@ -74,10 +125,10 @@ public class MessageService : IMessageService
 
         try
         {
-            // 5️⃣ Lưu message vào database trước để có ID
+            // 6️⃣ Lưu message vào database trước để có ID
             var savedMessage = await _messageRepo.InsertMessageAsync(msg);
 
-            // 6️⃣ Nếu có attachments, lưu vào database
+            // 7️⃣ Nếu có attachments, lưu vào database
             if (request.attachments != null && request.attachments.Count > 0)
             {
                 foreach (var attachmentReq in request.attachments)
@@ -95,10 +146,10 @@ public class MessageService : IMessageService
                 }
             }
 
-            // 7️⃣ Gọi đến Publisher để gửi tin
+            // 8️⃣ Gọi đến Publisher để gửi tin
             await _messagePublisher.PublishAsync(TopicExchange, routingKey, savedMessage);
 
-            // 8️⃣ Trả về kết quả thành công
+            // 9️⃣ Trả về kết quả thành công
             var responseData = new { Status = "Message routed successfully", RoutingKey = routingKey };
             return new MessageServiceResult(true, data: savedMessage);
         }

@@ -74,4 +74,47 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
 
         return result.FirstOrDefault();
     }
+
+    public async Task<Conversation?> GetConversationByIdAsync(int conversationId)
+    {
+        var sql = "SELECT * FROM conversations WHERE id = @ConversationId";
+        return await _dbConnection.QueryFirstOrDefaultAsync<Conversation>(sql, new { ConversationId = conversationId });
+    }
+
+    public async Task<Conversation?> GetPrivateConversationAsync(int userId1, int userId2)
+    {
+        var sql = @"
+            SELECT c.* FROM conversations c
+            INNER JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = @UserId1
+            INNER JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = @UserId2
+            WHERE c.is_group = false";
+        
+        return await _dbConnection.QueryFirstOrDefaultAsync<Conversation>(sql, new { UserId1 = userId1, UserId2 = userId2 });
+    }
+
+    public async Task<Conversation> CreateConversationAsync(Conversation conversation)
+    {
+        var sql = @"
+            INSERT INTO conversations (is_group, name, description, avatar_url, max_members, is_public, invite_link, require_approval, created_by, created_at)
+            VALUES (@is_group, @name, @description, @avatar_url, @max_members, @is_public, @invite_link, @require_approval, @created_by, @created_at);
+            SELECT LAST_INSERT_ID();";
+        
+        int newId = await _dbConnection.QueryFirstAsync<int>(sql, conversation);
+        conversation.id = newId;
+        return conversation;
+    }
+
+    public async Task AddConversationParticipantAsync(int conversationId, int userId)
+    {
+        var sql = @"
+            INSERT INTO conversation_participants (conversation_id, user_id, joined_at, role)
+            VALUES (@ConversationId, @UserId, @JoinedAt, @Role)";
+        
+        await _dbConnection.ExecuteAsync(sql, new {
+            ConversationId = conversationId,
+            UserId = userId,
+            JoinedAt = DateTime.UtcNow,
+            Role = "member"
+        });
+    }
 }

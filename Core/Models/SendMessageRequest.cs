@@ -8,7 +8,7 @@ namespace ChatServer.Core.Models
         // Ai là người gửi? Trong thực tế, bạn sẽ lấy thông tin này từ JWT token sau khi xác thực.
         public required int sender_id { get; set; }
 
-        public required int conversation_id { get; set; }
+        public int? conversation_id { get; set; }
         public required string content { get; set; }
 
         // Loại tin nhắn là gì?
@@ -21,6 +21,7 @@ namespace ChatServer.Core.Models
         // - Nếu là Private, đây là UserId của người nhận.
         // - Nếu là Group, đây là GroupId.
         // - Nếu là Public, có thể để trống.
+        // Bắt buộc khi không có conversation_id
         public int? target_id { get; set; }
         
         // Danh sách các file đính kèm
