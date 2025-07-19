@@ -1,4 +1,5 @@
 using ChatServer.SignalR.Hubs;
+using ChatServer.Middleware;
 
 namespace ChatServer.Extensions
 {
@@ -11,6 +12,7 @@ namespace ChatServer.Extensions
                 app.MapOpenApi();
             }
 
+            app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
             app.UseHttpsRedirection();
             app.UseCors("AllowNextApp");
             app.UseAuthentication();
