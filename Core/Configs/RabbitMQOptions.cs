@@ -1,4 +1,4 @@
-namespace ChatServer.Configs
+namespace ChatServer.Core.Configs
 {
     public sealed class RabbitMQOptions
     {

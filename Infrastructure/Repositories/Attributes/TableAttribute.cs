@@ -1,4 +1,4 @@
-namespace ChatServer.Repositories.Attributes;
+namespace ChatServer.Infrastructure.Repositories.Attributes;
 
 [AttributeUsage(AttributeTargets.Class)]
 public class TableAttribute : Attribute

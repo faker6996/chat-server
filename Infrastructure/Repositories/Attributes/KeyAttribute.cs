@@ -1,4 +1,4 @@
-namespace ChatServer.Repositories.Attributes;
+namespace ChatServer.Infrastructure.Repositories.Attributes;
 
 // Dùng để đánh dấu thuộc tính nào là khóa chính
 [AttributeUsage(AttributeTargets.Property)]

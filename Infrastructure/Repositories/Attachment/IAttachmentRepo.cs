@@ -1,7 +1,7 @@
 using ChatServer.Models;
 using ChatServer.Repositories.Base;
 
-namespace ChatServer.Repositories.Attachment
+namespace ChatServer.Infrastructure.Repositories.Attachment
 {
     public interface IAttachmentRepo : IBaseRepository<Models.Attachment>
     {

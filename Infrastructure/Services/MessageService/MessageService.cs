@@ -1,12 +1,12 @@
 // File: Application/MessageService.cs
-using ChatServer.Constants;
-using ChatServer.Models;
-using ChatServer.Repositories.Messenger;
-using ChatServer.Repositories.Attachment;
+using ChatServer.Core.Constants;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Messenger;
+using ChatServer.Infrastructure.Repositories.Attachment;
 using Microsoft.Extensions.Logging; // Thêm using cho ILogger
 
 // Sửa lại namespace cho nhất quán
-namespace ChatServer.Applications;
+namespace ChatServer.Infrastructure.Services;
 
 public class MessageService : IMessageService
 {

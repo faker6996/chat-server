@@ -1,7 +1,7 @@
 // File: Application/IMessagePublisher.cs
 using ChatServer.Models;
 
-namespace ChatServer.Applications;
+namespace ChatServer.Infrastructure.Services;
 
 public interface IMessagePublisher
 {

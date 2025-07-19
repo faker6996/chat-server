@@ -1,7 +1,7 @@
 // File: Application/IChatClientNotifier.cs
 using ChatServer.Models;
 
-namespace ChatServer.Applications;
+namespace ChatServer.Infrastructure.Services;
 
 // Interface định nghĩa khả năng thông báo cho client
 public interface IChatClientNotifier

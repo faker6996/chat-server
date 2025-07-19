@@ -1,7 +1,7 @@
-using ChatServer.Repositories.Attributes;
+using ChatServer.Infrastructure.Repositories.Attributes;
 using System;
 
-namespace ChatServer.Models
+namespace ChatServer.Core.Models
 {
     [Table("users")]
     public class User

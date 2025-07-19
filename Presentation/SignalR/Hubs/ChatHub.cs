@@ -1,13 +1,13 @@
-using ChatServer.Applications;
-using ChatServer.Models;
-using ChatServer.Repositories.Messenger;
-using ChatServer.Repositories.Group;
+using ChatServer.Infrastructure.Services;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Messenger;
+using ChatServer.Infrastructure.Repositories.Group;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Threading.Tasks;
 
-namespace ChatServer.SignalR.Hubs
+namespace ChatServer.Presentation.SignalR.Hubs
 {
     [Authorize]
     public class ChatHub : Hub<IChatHub>

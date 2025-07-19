@@ -1,7 +1,7 @@
 
-using ChatServer.Constants;
+using ChatServer.Core.Constants;
 
-namespace ChatServer.Models
+namespace ChatServer.Core.Models
 {
     public class SendMessageRequest
     {

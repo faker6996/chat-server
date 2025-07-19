@@ -8,7 +8,7 @@ using RabbitMQ.Client.Events;
 using System.Text;
 using System.Text.Json;
 
-namespace ChatServer.Services
+namespace ChatServer.Infrastructure.BackgroundServices
 {
     /// <summary>
     /// Service chạy nền để lắng nghe và xử lý tin nhắn từ RabbitMQ.

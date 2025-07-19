@@ -1,7 +1,7 @@
 // File: Application/IMessageService.cs
 using ChatServer.Models;
 
-namespace ChatServer.Applications;
+namespace ChatServer.Infrastructure.Services;
 
 // Định nghĩa một DTO (Data Transfer Object) để chứa kết quả trả về từ service
 public record MessageServiceResult(bool IsSuccess, string? ErrorMessage = null, object? data = null);

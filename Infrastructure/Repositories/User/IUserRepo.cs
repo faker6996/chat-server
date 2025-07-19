@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace ChatServer.Repositories.Messenger
+namespace ChatServer.Infrastructure.Repositories.Messenger
 {
     /// <summary>
     /// Interface định nghĩa các phương thức cho kho lưu trữ người dùng.

@@ -1,5 +1,5 @@
 // Models/ApiResponse.cs
-namespace ChatServer.Models
+namespace ChatServer.Core.Models
 {
     // Lớp generic để bọc các response thành công có dữ liệu
     public class ApiResponse<T>

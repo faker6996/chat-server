@@ -3,7 +3,7 @@ using ChatServer.Models;
 using ChatServer.Repositories.Base;
 using Dapper;
 
-namespace ChatServer.Repositories.Reaction
+namespace ChatServer.Infrastructure.Repositories.Reaction
 {
     public class ReactionRepo : BaseRepository<MessageReaction>, IReactionRepo
     {

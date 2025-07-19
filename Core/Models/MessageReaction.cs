@@ -1,6 +1,6 @@
-using ChatServer.Repositories.Attributes;
+using ChatServer.Infrastructure.Repositories.Attributes;
 
-namespace ChatServer.Models
+namespace ChatServer.Core.Models
 {
     [Table("message_reactions")]
     public class MessageReaction

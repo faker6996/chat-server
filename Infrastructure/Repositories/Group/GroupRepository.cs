@@ -5,7 +5,7 @@ using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ChatServer.Repositories.Group;
+namespace ChatServer.Infrastructure.Repositories.Group;
 
 // Simple concrete implementation for ConversationParticipant
 public class ConversationParticipantRepository : BaseRepository<ConversationParticipant>

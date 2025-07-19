@@ -1,7 +1,7 @@
 using ChatServer.Models;
 using ChatServer.Repositories.Base;
 
-namespace ChatServer.Repositories.Reaction
+namespace ChatServer.Infrastructure.Repositories.Reaction
 {
     public interface IReactionRepo : IBaseRepository<MessageReaction>
     {

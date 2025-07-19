@@ -2,7 +2,7 @@
 using ChatServer.Models;
 using ChatServer.Repositories.Base;
 
-namespace ChatServer.Repositories.Messenger;
+namespace ChatServer.Infrastructure.Repositories.Messenger;
 // 1. Kế thừa từ IBaseRepository<Message>
 //    Bây giờ IMessagesRepo sẽ tự động có các phương thức như
 //    GetByIdAsync, GetAllAsync, InsertAsync, UpdateAsync, DeleteAsync.

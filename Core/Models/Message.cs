@@ -1,8 +1,8 @@
 
-using ChatServer.Constants;
-using ChatServer.Repositories.Attributes;
+using ChatServer.Core.Constants;
+using ChatServer.Infrastructure.Repositories.Attributes;
 
-namespace ChatServer.Models
+namespace ChatServer.Core.Models
 {
 
     [Table("messages")]

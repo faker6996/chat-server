@@ -4,7 +4,7 @@ using System.Text;
 using ChatServer.Repositories.Attributes;
 using Dapper;
 
-namespace ChatServer.Repositories.Base;
+namespace ChatServer.Infrastructure.Repositories.Base;
 
 public abstract class BaseRepository<T> : IBaseRepository<T> where T : class
 {

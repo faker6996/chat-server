@@ -1,4 +1,4 @@
-namespace ChatServer.Constants
+namespace ChatServer.Core.Constants
 {
     public enum MESSAGE_TYPE
     {

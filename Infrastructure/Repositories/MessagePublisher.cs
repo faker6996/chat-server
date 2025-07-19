@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 
 // Namespace có thể là ChatServer.Repositories
-namespace ChatServer.Repositories;
+namespace ChatServer.Infrastructure.Repositories;
 
 public class MessagePublisher : IMessagePublisher
 {

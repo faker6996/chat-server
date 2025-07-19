@@ -1,6 +1,6 @@
 using ChatServer.Models;
 
-namespace ChatServer.Repositories.Group;
+namespace ChatServer.Infrastructure.Repositories.Group;
 
 public interface IGroupRepository
 {

@@ -3,7 +3,7 @@ using System.Data;
 using ChatServer.Models;
 using ChatServer.Repositories.Base;
 
-namespace ChatServer.Repositories.Messenger;
+namespace ChatServer.Infrastructure.Repositories.Messenger;
 
 public class MessageRepo : BaseRepository<Message>, IMessageRepo
 {
