@@ -49,12 +49,12 @@ namespace ChatServer.SignalR.Hubs
                 if (await _groupRepo.IsUserInGroupAsync(groupIdInt, userId.Value))
                 {
                     await Groups.AddToGroupAsync(Context.ConnectionId, $"Group_{groupId}");
-                    
+
                     // Update user online status for this group
                     await _groupRepo.UpdateUserOnlineStatusAsync(groupIdInt, userId.Value, true);
-                    
+
                     _logger.LogInformation("User {UserId} joined SignalR group {GroupId}", userId.Value, groupId);
-                    
+
                     // Notify other group members
                     await Clients.GroupExcept($"Group_{groupId}", Context.ConnectionId)
                         .UserJoinedGroup(groupIdInt, userId.Value);
@@ -74,12 +74,12 @@ namespace ChatServer.SignalR.Hubs
             if (int.TryParse(groupId, out int groupIdInt))
             {
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Group_{groupId}");
-                
+
                 // Update user online status
                 await _groupRepo.UpdateUserOnlineStatusAsync(groupIdInt, userId.Value, false);
-                
+
                 _logger.LogInformation("User {UserId} left SignalR group {GroupId}", userId.Value, groupId);
-                
+
                 // Notify other group members
                 await Clients.Group($"Group_{groupId}")
                     .UserLeftGroup(groupIdInt, userId.Value);
@@ -118,14 +118,14 @@ namespace ChatServer.SignalR.Hubs
                 };
 
                 var result = await _messageService.SendMessageAsync(messageRequest);
-                
+
                 if (!result.IsSuccess)
                 {
                     await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to send group message");
                     return;
                 }
 
-                _logger.LogInformation("Group message sent by user {UserId} to group {GroupId}", 
+                _logger.LogInformation("Group message sent by user {UserId} to group {GroupId}",
                     userId.Value, request.group_id);
 
                 // Message will be broadcast via RabbitMQ consumer
@@ -133,28 +133,31 @@ namespace ChatServer.SignalR.Hubs
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending group message from user {UserId} to group {GroupId}", 
+                _logger.LogError(ex, "Error sending group message from user {UserId} to group {GroupId}",
                     userId.Value, request.group_id);
                 await Clients.Caller.MessageFailed("Failed to send message");
             }
         }
 
+        public async Task SendIceCandidate(string targetUserId, string candidate)
+        {
+            var senderId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation($"🧊 ICE candidate from user {senderId} to {targetUserId}");
+            await Clients.User(targetUserId).ReceiveIceCandidate(senderId, candidate);
+        }
+
         public async Task SendCallOffer(string targetUserId, string offer)
         {
             var callerId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation($"📞 Call offer from {callerId} to {targetUserId}");
             await Clients.User(targetUserId).ReceiveCallOffer(callerId, offer);
         }
 
         public async Task SendCallAnswer(string targetUserId, string answer)
         {
             var calleeId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation($"📞 Call_answer offer from {calleeId} to {targetUserId}");
             await Clients.User(targetUserId).ReceiveCallAnswer(calleeId, answer);
-        }
-
-        public async Task SendIceCandidate(string targetUserId, string candidate)
-        {
-            var senderId = Context.UserIdentifier ?? "Unknown";
-            await Clients.User(targetUserId).ReceiveIceCandidate(senderId, candidate);
         }
 
         public async Task EndCall(string targetUserId)
@@ -193,7 +196,7 @@ namespace ChatServer.SignalR.Hubs
                 {
                     await Groups.AddToGroupAsync(Context.ConnectionId, $"Group_{group.id}");
                     await _groupRepo.UpdateUserOnlineStatusAsync(group.id, userId.Value, true);
-                    
+
                     // Notify group members that user is online
                     await Clients.GroupExcept($"Group_{group.id}", Context.ConnectionId)
                         .UserJoinedGroup(group.id, userId.Value);
@@ -202,7 +205,7 @@ namespace ChatServer.SignalR.Hubs
                 // Thông báo cho các client khác rằng user này đã online
                 await Clients.Others.UserOnline(userId.Value.ToString());
 
-                _logger.LogInformation("User {UserId} connected and joined {GroupCount} groups", 
+                _logger.LogInformation("User {UserId} connected and joined {GroupCount} groups",
                     userId.Value, userGroups.Count);
             }
 
@@ -224,7 +227,7 @@ namespace ChatServer.SignalR.Hubs
                 foreach (var group in userGroups)
                 {
                     await _groupRepo.UpdateUserOnlineStatusAsync(group.id, userId.Value, false);
-                    
+
                     // Notify group members
                     await Clients.Group($"Group_{group.id}")
                         .UserLeftGroup(group.id, userId.Value);
@@ -233,7 +236,7 @@ namespace ChatServer.SignalR.Hubs
                 // Thông báo cho các client khác rằng user này đã offline
                 await Clients.Others.UserOffline(userId.Value.ToString());
 
-                _logger.LogInformation("User {UserId} disconnected from {GroupCount} groups", 
+                _logger.LogInformation("User {UserId} disconnected from {GroupCount} groups",
                     userId.Value, userGroups.Count);
             }
 
