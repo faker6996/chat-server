@@ -1,7 +1,7 @@
-using ChatServer.Models;
+using ChatServer.Core.Models;
 using System.Threading.Tasks;
 
-namespace ChatServer.SignalR.Hubs
+namespace ChatServer.Presentation.SignalR.Hubs
 {
     /// <summary>
     /// Interface định nghĩa các phương thức mà SERVER có thể gọi trên CLIENT.

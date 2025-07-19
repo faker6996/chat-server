@@ -1,6 +1,6 @@
-using ChatServer.Applications;
-using ChatServer.Models;
-using ChatServer.Repositories.Reaction;
+using ChatServer.Infrastructure.Services;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Reaction;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatServer.Controllers
@@ -43,7 +43,7 @@ namespace ChatServer.Controllers
 
                 reaction.id = await _reactionRepo.InsertAsync(reaction);
 
-                _logger.LogInformation("Broadcasting reaction add - MessageId: {MessageId}, UserId: {UserId}, Emoji: {Emoji}", 
+                _logger.LogInformation("Broadcasting reaction add - MessageId: {MessageId}, UserId: {UserId}, Emoji: {Emoji}",
                     request.message_id, request.user_id, request.emoji);
 
                 // Broadcast reaction to all clients
@@ -63,13 +63,13 @@ namespace ChatServer.Controllers
             try
             {
                 var success = await _reactionRepo.RemoveReactionAsync(request.message_id, request.user_id, request.emoji);
-                
+
                 if (!success)
                 {
                     return BadRequestResponse("Reaction not found");
                 }
 
-                _logger.LogInformation("Broadcasting reaction remove - MessageId: {MessageId}, UserId: {UserId}, Emoji: {Emoji}", 
+                _logger.LogInformation("Broadcasting reaction remove - MessageId: {MessageId}, UserId: {UserId}, Emoji: {Emoji}",
                     request.message_id, request.user_id, request.emoji);
 
                 // Broadcast reaction removal to all clients

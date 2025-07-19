@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging; // Thêm using cho ILogger
 
-namespace ChatServer.SignalR
+namespace ChatServer.Presentation.SignalR
 {
     // Không cần inject ILogger ở đây vì nó không phải là service được quản lý bởi DI container theo cách thông thường
     // Logging có thể được thực hiện từ các service khác nếu cần

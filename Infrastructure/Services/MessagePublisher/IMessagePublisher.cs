@@ -1,5 +1,5 @@
 // File: Application/IMessagePublisher.cs
-using ChatServer.Models;
+using ChatServer.Core.Models;
 
 namespace ChatServer.Infrastructure.Services;
 

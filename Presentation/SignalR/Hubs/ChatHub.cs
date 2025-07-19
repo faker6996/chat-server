@@ -1,5 +1,6 @@
 using ChatServer.Infrastructure.Services;
 using ChatServer.Core.Models;
+using ChatServer.Core.Constants;
 using ChatServer.Infrastructure.Repositories.Messenger;
 using ChatServer.Infrastructure.Repositories.Group;
 using Microsoft.AspNetCore.Authorization;
@@ -109,7 +110,7 @@ namespace ChatServer.Presentation.SignalR.Hubs
                     sender_id = userId.Value,
                     conversation_id = request.group_id,
                     content = request.content,
-                    message_type = Constants.MESSAGE_TYPE.GROUP,
+                    message_type = MESSAGE_TYPE.GROUP,
                     content_type = request.content_type,
                     target_id = request.group_id,
                     reply_to_message_id = request.reply_to_message_id,

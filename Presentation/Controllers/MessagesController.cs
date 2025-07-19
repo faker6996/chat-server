@@ -1,7 +1,7 @@
 // File: Controllers/MessagesController.cs
 
-using ChatServer.Applications; // Using lớp Application
-using ChatServer.Models;
+using ChatServer.Infrastructure.Services;
+using ChatServer.Core.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatServer.Controllers;

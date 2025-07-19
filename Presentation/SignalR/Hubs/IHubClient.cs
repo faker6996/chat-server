@@ -1,4 +1,4 @@
-using ChatServer.Models;
+using ChatServer.Core.Models;
 using System.Threading.Tasks;
 
 namespace ChatServer.SignalR.Hubs

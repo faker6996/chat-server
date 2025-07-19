@@ -82,7 +82,7 @@ public class MessageService : IMessageService
             {
                 foreach (var attachmentReq in request.attachments)
                 {
-                    var attachment = new Models.Attachment
+                    var attachment = new Attachment
                     {
                         message_id = savedMessage.id,
                         file_name = attachmentReq.file_name,

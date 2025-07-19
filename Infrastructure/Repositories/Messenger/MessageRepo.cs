@@ -1,7 +1,7 @@
 using Dapper;
 using System.Data;
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 
 namespace ChatServer.Infrastructure.Repositories.Messenger;
 
@@ -55,7 +55,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
             WHERE m.id = @MessageId";
 
         var messageDictionary = new Dictionary<int, Message>();
-        
+
         var result = await _dbConnection.QueryAsync<Message, dynamic, Message>(
             sql,
             (message, repliedMessage) =>
@@ -65,7 +65,7 @@ public class MessageRepo : BaseRepository<Message>, IMessageRepo
                     messageEntry = message;
                     messageDictionary.Add(message.id, messageEntry);
                 }
-                
+
                 return messageEntry;
             },
             new { MessageId = messageId },

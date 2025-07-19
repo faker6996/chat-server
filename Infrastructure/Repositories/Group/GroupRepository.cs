@@ -1,5 +1,6 @@
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Group;
+using ChatServer.Infrastructure.Repositories.Base;
 using Dapper;
 using System.Data;
 using System.Security.Cryptography;

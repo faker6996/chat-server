@@ -1,5 +1,5 @@
 // Controllers/BaseApiController.cs
-using ChatServer.Models;
+using ChatServer.Core.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatServer.Controllers

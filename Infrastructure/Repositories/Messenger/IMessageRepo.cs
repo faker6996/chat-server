@@ -1,6 +1,6 @@
 // Giả sử file này là Repositories/IMessagesRepo.cs
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 
 namespace ChatServer.Infrastructure.Repositories.Messenger;
 // 1. Kế thừa từ IBaseRepository<Message>

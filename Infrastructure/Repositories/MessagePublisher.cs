@@ -1,6 +1,6 @@
 // File: Repositories/MessagePublisher.cs
-using ChatServer.Applications; // using interface từ lớp Application
-using ChatServer.Models;
+using ChatServer.Infrastructure.Services; // using interface từ lớp Application
+using ChatServer.Core.Models;
 using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;

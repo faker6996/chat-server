@@ -1,6 +1,6 @@
 using System.Data;
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 using Dapper;
 
 namespace ChatServer.Infrastructure.Repositories.Reaction

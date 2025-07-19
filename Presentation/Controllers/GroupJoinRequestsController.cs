@@ -1,6 +1,6 @@
-using ChatServer.Applications;
-using ChatServer.Models;
-using ChatServer.Repositories.Group;
+using ChatServer.Infrastructure.Services;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Group;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -43,7 +43,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if group exists
             var group = await _groupRepo.GetGroupByIdAsync(groupId);
             if (group == null)
@@ -74,21 +74,21 @@ public class GroupJoinRequestsController : BaseApiController
             if (requestId > 0)
             {
                 var joinRequest = await _groupRepo.GetJoinRequestAsync(requestId);
-                
-                _logger.LogInformation("Join request {RequestId} created for user {UserId} to group {GroupId}", 
+
+                _logger.LogInformation("Join request {RequestId} created for user {UserId} to group {GroupId}",
                     requestId, userId, groupId);
-                
+
                 // Notify group admins about the new join request
                 // await _notifier.GroupJoinRequest(groupId, joinRequest);
-                
+
                 return OkResponse(joinRequest, "Join request submitted successfully");
             }
-            
+
             return BadRequestResponse("Failed to create join request");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating join request for user {UserId} to group {GroupId}", 
+            _logger.LogError(ex, "Error creating join request for user {UserId} to group {GroupId}",
                 GetCurrentUserId(), groupId);
             return InternalErrorResponse("Failed to create join request");
         }
@@ -101,7 +101,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if user is in group
             if (!await _groupRepo.IsUserInGroupAsync(groupId, userId))
             {
@@ -113,7 +113,7 @@ public class GroupJoinRequestsController : BaseApiController
             {
                 return BadRequestResponse("Insufficient permissions to view join requests");
             }
-            
+
             var requests = await _groupRepo.GetPendingRequestsAsync(groupId);
             return OkResponse(requests, "Pending requests retrieved successfully");
         }
@@ -131,7 +131,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Validate action
             if (!new[] { "approve", "reject" }.Contains(request.action))
             {
@@ -187,9 +187,9 @@ public class GroupJoinRequestsController : BaseApiController
             var success = await _groupRepo.HandleJoinRequestAsync(requestId, request.action, userId, request.reason);
             if (success)
             {
-                _logger.LogInformation("Join request {RequestId} {Action} by user {UserId} for group {GroupId}", 
+                _logger.LogInformation("Join request {RequestId} {Action} by user {UserId} for group {GroupId}",
                     requestId, request.action, userId, groupId);
-                
+
                 // If approved, add user to group
                 if (request.action == "approve")
                 {
@@ -197,27 +197,27 @@ public class GroupJoinRequestsController : BaseApiController
                     if (addSuccess)
                     {
                         var member = await _groupRepo.GetMemberAsync(groupId, joinRequest.user_id);
-                        
-                        _logger.LogInformation("User {NewMemberId} added to group {GroupId} via approved join request", 
+
+                        _logger.LogInformation("User {NewMemberId} added to group {GroupId} via approved join request",
                             joinRequest.user_id, groupId);
-                        
+
                         // Notify about new member
                         // await _notifier.GroupMemberAdded(groupId, member);
                     }
                     else
                     {
-                        _logger.LogWarning("Failed to add user {UserId} to group {GroupId} after approving join request", 
+                        _logger.LogWarning("Failed to add user {UserId} to group {GroupId} after approving join request",
                             joinRequest.user_id, groupId);
                     }
                 }
-                
+
                 // Notify about request handling
                 // await _notifier.GroupJoinRequestHandled(requestId, request.action, request.reason);
-                
+
                 var updatedRequest = await _groupRepo.GetJoinRequestAsync(requestId);
                 return OkResponse(updatedRequest, $"Join request {request.action}d successfully");
             }
-            
+
             return BadRequestResponse("Failed to handle join request");
         }
         catch (Exception ex)
@@ -234,7 +234,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Get the join request
             var joinRequest = await _groupRepo.GetJoinRequestAsync(requestId);
             if (joinRequest == null)
@@ -251,7 +251,7 @@ public class GroupJoinRequestsController : BaseApiController
             // Check if user can view this request
             // User can view if they are the requester or if they have manage_requests permission
             var canView = joinRequest.user_id == userId;
-            
+
             if (!canView && await _groupRepo.IsUserInGroupAsync(groupId, userId))
             {
                 canView = await _groupRepo.HasPermissionAsync(groupId, userId, "manage_requests");
@@ -261,7 +261,7 @@ public class GroupJoinRequestsController : BaseApiController
             {
                 return BadRequestResponse("You don't have permission to view this join request");
             }
-            
+
             return OkResponse(joinRequest, "Join request retrieved successfully");
         }
         catch (Exception ex)
@@ -278,7 +278,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Get the join request
             var joinRequest = await _groupRepo.GetJoinRequestAsync(requestId);
             if (joinRequest == null)
@@ -308,12 +308,12 @@ public class GroupJoinRequestsController : BaseApiController
             var success = await _groupRepo.HandleJoinRequestAsync(requestId, "reject", userId, "Cancelled by requester");
             if (success)
             {
-                _logger.LogInformation("Join request {RequestId} cancelled by requester {UserId} for group {GroupId}", 
+                _logger.LogInformation("Join request {RequestId} cancelled by requester {UserId} for group {GroupId}",
                     requestId, userId, groupId);
-                
+
                 return OkResponse(true, "Join request cancelled successfully");
             }
-            
+
             return BadRequestResponse("Failed to cancel join request");
         }
         catch (Exception ex)
@@ -330,7 +330,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if group exists
             var group = await _groupRepo.GetGroupByIdAsync(groupId);
             if (group == null)
@@ -346,19 +346,19 @@ public class GroupJoinRequestsController : BaseApiController
 
             // Check if there's a pending request for this user and group
             var hasPendingRequest = await _groupRepo.HasPendingRequestAsync(groupId, userId);
-            
+
             if (hasPendingRequest)
             {
                 // Find the pending request (this is a simplified approach)
                 var pendingRequests = await _groupRepo.GetPendingRequestsAsync(groupId);
                 var myRequest = pendingRequests.FirstOrDefault(r => r.user_id == userId);
-                
+
                 if (myRequest != null)
                 {
                     return OkResponse(myRequest, "Your join request found");
                 }
             }
-            
+
             return NotFoundResponse("No join request found for this group");
         }
         catch (Exception ex)
@@ -375,7 +375,7 @@ public class GroupJoinRequestsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if user is in group and has permission
             if (!await _groupRepo.IsUserInGroupAsync(groupId, userId))
             {
@@ -390,7 +390,7 @@ public class GroupJoinRequestsController : BaseApiController
             // For now, we'll return pending requests
             // In a full implementation, this would include historical data with pagination
             var requests = await _groupRepo.GetPendingRequestsAsync(groupId);
-            
+
             // If status filter is provided, we could filter here
             if (!string.IsNullOrEmpty(status))
             {
@@ -400,7 +400,7 @@ public class GroupJoinRequestsController : BaseApiController
             // Simple pagination
             var skip = (page - 1) * limit;
             var paginatedRequests = requests.Skip(skip).Take(limit).ToList();
-            
+
             var result = new
             {
                 requests = paginatedRequests,
@@ -409,7 +409,7 @@ public class GroupJoinRequestsController : BaseApiController
                 limit,
                 total_pages = (int)Math.Ceiling((double)requests.Count / limit)
             };
-            
+
             return OkResponse(result, "Request history retrieved successfully");
         }
         catch (Exception ex)

@@ -2,8 +2,8 @@ using Dapper;
 using System;
 using System.Data;
 using System.Threading.Tasks;
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 
 namespace ChatServer.Infrastructure.Repositories.Messenger
 {

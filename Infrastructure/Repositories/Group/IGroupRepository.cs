@@ -1,4 +1,4 @@
-using ChatServer.Models;
+using ChatServer.Core.Models;
 
 namespace ChatServer.Infrastructure.Repositories.Group;
 

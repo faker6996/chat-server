@@ -187,7 +187,7 @@ namespace ChatServer.Infrastructure.BackgroundServices
                 }
 
                 // Get reactions
-                var reactionRepo = serviceProvider.GetService<ChatServer.Repositories.Reaction.IReactionRepo>();
+                var reactionRepo = serviceProvider.GetService<ChatServer.Infrastructure.Repositories.Reaction.IReactionRepo>();
                 if (reactionRepo != null)
                 {
                     var reactions = await reactionRepo.GetByMessageIdAsync((int)message.id);

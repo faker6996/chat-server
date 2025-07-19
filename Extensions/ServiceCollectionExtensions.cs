@@ -132,7 +132,7 @@ namespace ChatServer.Extensions
         public static IServiceCollection AddSignalRServices(this IServiceCollection services)
         {
             services.AddSignalR();
-            services.AddSingleton<IUserIdProvider, NameUserIdProvider>();
+            services.AddSingleton<IUserIdProvider, ChatServer.Presentation.SignalR.NameUserIdProvider>();
             return services;
         }
 

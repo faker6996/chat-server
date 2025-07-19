@@ -1,5 +1,5 @@
-using ChatServer.Models;
-using ChatServer.Repositories.Base;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 
 namespace ChatServer.Infrastructure.Repositories.Reaction
 {

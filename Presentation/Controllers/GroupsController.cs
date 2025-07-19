@@ -1,6 +1,6 @@
-using ChatServer.Applications;
-using ChatServer.Models;
-using ChatServer.Repositories.Group;
+using ChatServer.Infrastructure.Services;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Group;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -17,7 +17,7 @@ public class GroupsController : BaseApiController
     private readonly ILogger<GroupsController> _logger;
 
     public GroupsController(
-        IGroupRepository groupRepo, 
+        IGroupRepository groupRepo,
         IChatClientNotifier notifier,
         ILogger<GroupsController> logger)
     {
@@ -43,7 +43,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Validate request
             if (string.IsNullOrWhiteSpace(request.name))
             {
@@ -57,10 +57,10 @@ public class GroupsController : BaseApiController
 
             // Create group
             var group = await _groupRepo.CreateGroupAsync(request, userId);
-            
+
             // Add creator as admin
             await _groupRepo.AddMemberAsync(group.id, userId, "admin");
-            
+
             // Add initial members
             var addedMembers = new List<GroupMemberResponse>();
             foreach (var memberId in request.initial_members)
@@ -78,15 +78,15 @@ public class GroupsController : BaseApiController
                     }
                 }
             }
-            
+
             // Get complete group info
             var groupInfo = await _groupRepo.GetGroupInfoAsync(group.id, userId);
-            
+
             _logger.LogInformation("Group created: {GroupId} by user {UserId}", group.id, userId);
-            
+
             // Notify via SignalR (will be implemented when we extend the notifier)
             // await _notifier.GroupCreated(groupInfo);
-            
+
             return OkResponse(groupInfo, "Group created successfully");
         }
         catch (Exception ex)
@@ -103,7 +103,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if user is in group and has permission
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
@@ -114,18 +114,18 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Insufficient permissions to edit group info");
             }
-            
+
             var updated = await _groupRepo.UpdateGroupAsync(id, request);
             if (updated)
             {
                 var group = await _groupRepo.GetGroupInfoAsync(id, userId);
-                
+
                 _logger.LogInformation("Group {GroupId} updated by user {UserId}", id, userId);
-                
+
                 // await _notifier.GroupUpdated(group);
                 return OkResponse(group, "Group updated successfully");
             }
-            
+
             return BadRequestResponse("Failed to update group");
         }
         catch (Exception ex)
@@ -142,7 +142,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if user is member or if group is public
             var group = await _groupRepo.GetGroupByIdAsync(id);
             if (group == null)
@@ -155,7 +155,7 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("You are not a member of this group");
             }
-            
+
             var groupInfo = await _groupRepo.GetGroupInfoAsync(id, userId);
             return OkResponse(groupInfo, "Group info retrieved successfully");
         }
@@ -174,7 +174,7 @@ public class GroupsController : BaseApiController
         {
             var userId = GetCurrentUserId();
             var groups = await _groupRepo.GetUserGroupsWithInfoAsync(userId);
-            
+
             return OkResponse(groups, "User groups retrieved successfully");
         }
         catch (Exception ex)
@@ -191,7 +191,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -214,7 +214,7 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse($"Adding these members would exceed the group limit of {group.max_members}");
             }
-            
+
             var addedMembers = new List<GroupMemberResponse>();
             foreach (var memberId in request.user_ids)
             {
@@ -227,16 +227,16 @@ public class GroupsController : BaseApiController
                         if (member != null)
                         {
                             addedMembers.Add(member);
-                            
-                            _logger.LogInformation("User {MemberId} added to group {GroupId} by {UserId}", 
+
+                            _logger.LogInformation("User {MemberId} added to group {GroupId} by {UserId}",
                                 memberId, id, userId);
-                            
+
                             // await _notifier.GroupMemberAdded(id, member);
                         }
                     }
                 }
             }
-            
+
             return OkResponse(addedMembers, $"Added {addedMembers.Count} members successfully");
         }
         catch (Exception ex)
@@ -253,7 +253,7 @@ public class GroupsController : BaseApiController
         try
         {
             var currentUserId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, currentUserId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -281,19 +281,19 @@ public class GroupsController : BaseApiController
                     return BadRequestResponse("Cannot remove the last admin from the group");
                 }
             }
-            
+
             var success = await _groupRepo.RemoveMemberAsync(id, targetUserId);
             if (success)
             {
-                _logger.LogInformation("User {TargetUserId} removed from group {GroupId} by {CurrentUserId}", 
+                _logger.LogInformation("User {TargetUserId} removed from group {GroupId} by {CurrentUserId}",
                     targetUserId, id, currentUserId);
-                
+
                 var reason = currentUserId == targetUserId ? "left" : "removed";
                 // await _notifier.GroupMemberRemoved(id, targetUserId, reason);
-                
+
                 return OkResponse(true, "Member removed successfully");
             }
-            
+
             return BadRequestResponse("Failed to remove member");
         }
         catch (Exception ex)
@@ -310,7 +310,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -326,17 +326,17 @@ public class GroupsController : BaseApiController
                     return BadRequestResponse("You are the last admin. Please promote another member to admin before leaving");
                 }
             }
-            
+
             var success = await _groupRepo.RemoveMemberAsync(id, userId);
-            
+
             if (success)
             {
                 _logger.LogInformation("User {UserId} left group {GroupId}", userId, id);
-                
+
                 // await _notifier.GroupMemberRemoved(id, userId, "left");
                 return OkResponse(true, "Left group successfully");
             }
-            
+
             return BadRequestResponse("Failed to leave group");
         }
         catch (Exception ex)
@@ -353,7 +353,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             // Check if user is member or if group is public
             var group = await _groupRepo.GetGroupByIdAsync(id);
             if (group == null)
@@ -366,7 +366,7 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("You are not a member of this group");
             }
-            
+
             var members = await _groupRepo.GetGroupMembersAsync(id);
             return OkResponse(members, "Group members retrieved successfully");
         }
@@ -384,7 +384,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -406,17 +406,17 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Target user is not a member of this group");
             }
-            
+
             var success = await _groupRepo.UpdateMemberRoleAsync(id, request.user_id, request.role);
             if (success)
             {
-                _logger.LogInformation("User {TargetUserId} promoted to {Role} in group {GroupId} by {UserId}", 
+                _logger.LogInformation("User {TargetUserId} promoted to {Role} in group {GroupId} by {UserId}",
                     request.user_id, request.role, id, userId);
-                
+
                 // await _notifier.GroupMemberPromoted(id, request.user_id, request.role);
                 return OkResponse(true, $"Member promoted to {request.role} successfully");
             }
-            
+
             return BadRequestResponse("Failed to promote member");
         }
         catch (Exception ex)
@@ -433,7 +433,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -443,7 +443,7 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Insufficient permissions to manage invites");
             }
-            
+
             var link = await _groupRepo.GetOrCreateInviteLinkAsync(id);
             return OkResponse(new { invite_link = link }, "Invite link retrieved successfully");
         }
@@ -461,7 +461,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -471,17 +471,17 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Insufficient permissions to manage invites");
             }
-            
+
             var success = await _groupRepo.RegenerateInviteLinkAsync(id);
             if (success)
             {
                 var newLink = await _groupRepo.GetOrCreateInviteLinkAsync(id);
-                
+
                 _logger.LogInformation("Invite link regenerated for group {GroupId} by user {UserId}", id, userId);
-                
+
                 return OkResponse(new { invite_link = newLink }, "Invite link regenerated successfully");
             }
-            
+
             return BadRequestResponse("Failed to regenerate invite link");
         }
         catch (Exception ex)
@@ -499,12 +499,12 @@ public class GroupsController : BaseApiController
         {
             var userId = GetCurrentUserId();
             var groupId = await _groupRepo.GetGroupByInviteLinkAsync(inviteCode);
-            
+
             if (groupId == null)
             {
                 return BadRequestResponse("Invalid or expired invite link");
             }
-            
+
             if (await _groupRepo.IsUserInGroupAsync(groupId.Value, userId))
             {
                 return BadRequestResponse("You are already a member of this group");
@@ -514,13 +514,13 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Cannot join group (may be full or other restrictions)");
             }
-            
+
             var group = await _groupRepo.GetGroupByIdAsync(groupId.Value);
             if (group == null)
             {
                 return BadRequestResponse("Group not found");
             }
-            
+
             if (group.require_approval)
             {
                 // Create join request
@@ -529,13 +529,13 @@ public class GroupsController : BaseApiController
                 {
                     return BadRequestResponse("You already have a pending join request for this group");
                 }
-                
+
                 var requestId = await _groupRepo.CreateJoinRequestAsync(groupId.Value, userId, null);
-                
+
                 _logger.LogInformation("Join request created for user {UserId} to group {GroupId}", userId, groupId.Value);
-                
+
                 // await _notifier.GroupJoinRequest(groupId.Value, joinRequest);
-                
+
                 return OkResponse(new { message = "Join request sent. Waiting for admin approval.", request_id = requestId });
             }
             else
@@ -545,15 +545,15 @@ public class GroupsController : BaseApiController
                 if (success)
                 {
                     var member = await _groupRepo.GetMemberAsync(groupId.Value, userId);
-                    
+
                     _logger.LogInformation("User {UserId} joined group {GroupId} via invite", userId, groupId.Value);
-                    
+
                     // await _notifier.GroupMemberAdded(groupId.Value, member);
-                    
+
                     return OkResponse(new { message = "Joined group successfully", group_id = groupId.Value });
                 }
             }
-            
+
             return BadRequestResponse("Failed to join group");
         }
         catch (Exception ex)
@@ -570,12 +570,12 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
             }
-            
+
             var stats = await _groupRepo.GetGroupStatsAsync(id);
             return OkResponse(stats, "Group statistics retrieved successfully");
         }
@@ -593,7 +593,7 @@ public class GroupsController : BaseApiController
         try
         {
             var userId = GetCurrentUserId();
-            
+
             if (!await _groupRepo.IsUserInGroupAsync(id, userId))
             {
                 return BadRequestResponse("You are not a member of this group");
@@ -604,17 +604,17 @@ public class GroupsController : BaseApiController
             {
                 return BadRequestResponse("Only admins can delete groups");
             }
-            
+
             var success = await _groupRepo.DeleteGroupAsync(id);
             if (success)
             {
                 _logger.LogInformation("Group {GroupId} deleted by user {UserId}", id, userId);
-                
+
                 // TODO: Notify all members about group deletion
-                
+
                 return OkResponse(true, "Group deleted successfully");
             }
-            
+
             return BadRequestResponse("Failed to delete group");
         }
         catch (Exception ex)
