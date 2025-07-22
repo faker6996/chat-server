@@ -12,7 +12,7 @@ namespace ChatServer.Presentation.SignalR.Hubs
         Task MessageFailed(string errorMessage);
 
         // --- Phương thức cho Video Call ---
-        Task ReceiveCallOffer(string callerId, string offer);
+        Task ReceiveCallOffer(string callerId, string offer, string callType);
         Task ReceiveCallAnswer(string calleeId, string answer);
         Task ReceiveIceCandidate(string senderId, string candidate);
         Task CallEnded(string endingUserId);

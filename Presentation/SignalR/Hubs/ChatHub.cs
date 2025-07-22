@@ -146,11 +146,43 @@ namespace ChatServer.Presentation.SignalR.Hubs
             await Clients.User(targetUserId).ReceiveIceCandidate(senderId, candidate);
         }
 
-        public async Task SendCallOffer(string targetUserId, string offer)
+        public async Task SendCallOffer(string targetUserId, string offer, string callType = "video")
         {
-            var callerId = Context.UserIdentifier ?? "Unknown";
-            _logger.LogInformation($"📞 Call offer from {callerId} to {targetUserId}");
-            await Clients.User(targetUserId).ReceiveCallOffer(callerId, offer);
+            try
+            {
+                var callerId = Context.UserIdentifier ?? "Unknown";
+                
+                // Log for debugging
+                _logger.LogInformation($"📞 SendCallOffer: from {callerId} to {targetUserId}, type: {callType}");
+
+                // Validate inputs
+                if (string.IsNullOrEmpty(targetUserId))
+                {
+                    throw new ArgumentException("Target user ID cannot be empty");
+                }
+
+                if (string.IsNullOrEmpty(offer))
+                {
+                    throw new ArgumentException("Offer cannot be empty");
+                }
+
+                // Validate and normalize callType
+                callType = callType?.ToLower() ?? "video";
+                if (callType != "video" && callType != "audio")
+                {
+                    callType = "video"; // default to video call
+                }
+
+                // Send to target user
+                await Clients.User(targetUserId).ReceiveCallOffer(callerId, offer, callType);
+
+                _logger.LogInformation($"📞 Call offer sent successfully to {targetUserId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Error in SendCallOffer: {ex.Message}");
+                throw; // Re-throw to send error back to client
+            }
         }
 
         public async Task SendCallAnswer(string targetUserId, string answer)

@@ -14,7 +14,7 @@ namespace ChatServer.SignalR.Hubs
         Task RemoveReaction(int messageId, int userId, string emoji);
 
         // Phương thức cho video call
-        Task ReceiveCallOffer(string callingUserId, string offer);
+        Task ReceiveCallOffer(string callingUserId, string offer, string callType);
         Task ReceiveCallAnswer(string answeringUserId, string answer);
         Task ReceiveIceCandidate(string sendingUserId, string candidate);
         Task CallEnded(string disconnectingUserId);
