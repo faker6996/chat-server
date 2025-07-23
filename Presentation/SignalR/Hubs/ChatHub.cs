@@ -1,4 +1,5 @@
 using ChatServer.Infrastructure.Services;
+using ChatServer.Infrastructure.Services.GroupCall;
 using ChatServer.Core.Models;
 using ChatServer.Core.Constants;
 using ChatServer.Infrastructure.Repositories.Messenger;
@@ -16,13 +17,18 @@ namespace ChatServer.Presentation.SignalR.Hubs
         private readonly IMessageService _messageService;
         private readonly IUserRepo _userService; // Dùng IUserRepo như bạn đã cung cấp
         private readonly IGroupRepository _groupRepo;
+        private readonly IGroupCallService _groupCallService;
+        private readonly IChatClientNotifier _clientNotifier;
         private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(IMessageService messageService, IUserRepo userService, IGroupRepository groupRepo, ILogger<ChatHub> logger)
+        public ChatHub(IMessageService messageService, IUserRepo userService, IGroupRepository groupRepo, 
+            IGroupCallService groupCallService, IChatClientNotifier clientNotifier, ILogger<ChatHub> logger)
         {
             _messageService = messageService;
             _userService = userService;
             _groupRepo = groupRepo;
+            _groupCallService = groupCallService;
+            _clientNotifier = clientNotifier;
             _logger = logger;
         }
 
@@ -198,6 +204,244 @@ namespace ChatServer.Presentation.SignalR.Hubs
             await Clients.User(targetUserId).CallEnded(endingUserId);
         }
 
+        // === GROUP CALL METHODS ===
+
+        public async Task StartGroupCall(string groupId, string callType)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                await Clients.Caller.MessageFailed("User not authenticated");
+                return;
+            }
+
+            if (!int.TryParse(groupId, out int groupIdInt))
+            {
+                await Clients.Caller.MessageFailed("Invalid group ID");
+                return;
+            }
+
+            try
+            {
+                var request = new StartGroupCallRequest
+                {
+                    call_type = callType,
+                    max_participants = 10
+                };
+
+                var result = await _groupCallService.StartGroupCallAsync(groupIdInt, userId.Value, request);
+
+                if (!result.IsSuccess)
+                {
+                    await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to start group call");
+                    return;
+                }
+
+                var callResponse = result.Data as GroupCallResponse;
+                if (callResponse != null)
+                {
+                    // Join the call-specific SignalR group
+                    await Groups.AddToGroupAsync(Context.ConnectionId, $"Call_{callResponse.id}");
+
+                    // Debug: Check group members
+                    var groupMembers = await _groupRepo.GetGroupMembersAsync(groupIdInt);
+                    _logger.LogInformation("DEBUG: Group {GroupId} has {MemberCount} members. Broadcasting GroupCallStarted to Group_{GroupId}",
+                        groupIdInt, groupMembers.Count, groupIdInt);
+
+                    // Notify all group members about the new call
+                    await _clientNotifier.GroupCallStartedAsync(groupIdInt, callResponse);
+
+                    _logger.LogInformation("Group call {CallId} started by user {UserId} in group {GroupId}. Notification sent to Group_{GroupId}",
+                        callResponse.id, userId.Value, groupIdInt, groupIdInt);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting group call in group {GroupId} by user {UserId}", groupIdInt, userId.Value);
+                await Clients.Caller.MessageFailed("Failed to start group call");
+            }
+        }
+
+        public async Task JoinGroupCall(string callId)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                await Clients.Caller.MessageFailed("User not authenticated");
+                return;
+            }
+
+            try
+            {
+                var request = new JoinGroupCallRequest
+                {
+                    is_audio_enabled = true,
+                    is_video_enabled = true
+                };
+
+                var result = await _groupCallService.JoinGroupCallAsync(callId, userId.Value, request);
+
+                if (!result.IsSuccess)
+                {
+                    await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to join group call");
+                    return;
+                }
+
+                // Join the call-specific SignalR group
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"Call_{callId}");
+
+                var callResponse = result.Data as GroupCallResponse;
+                if (callResponse != null)
+                {
+                    var participant = callResponse.participants.FirstOrDefault(p => p.user_id == userId.Value);
+                    if (participant != null)
+                    {
+                        // Notify group members about new participant
+                        await _clientNotifier.GroupCallParticipantJoinedAsync(callResponse.group_id, callId, participant);
+                    }
+                }
+
+                _logger.LogInformation("User {UserId} joined group call {CallId}", userId.Value, callId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error joining group call {CallId} for user {UserId}", callId, userId.Value);
+                await Clients.Caller.MessageFailed("Failed to join group call");
+            }
+        }
+
+        public async Task LeaveGroupCall(string callId)
+        {
+            var userId = GetUserId();
+            if (userId == null) return;
+
+            try
+            {
+                // Get call info before leaving
+                var activeCallResult = await _groupCallService.GetActiveGroupCallAsync(0); // We'll need the groupId
+                GroupCallResponse? callInfo = null;
+                
+                // Leave the call
+                var result = await _groupCallService.LeaveGroupCallAsync(callId, userId.Value);
+
+                if (!result.IsSuccess)
+                {
+                    await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to leave group call");
+                    return;
+                }
+
+                // Leave the call-specific SignalR group
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Call_{callId}");
+
+                // Notify group members about participant leaving
+                if (callInfo != null)
+                {
+                    await _clientNotifier.GroupCallParticipantLeftAsync(callInfo.group_id, callId, userId.Value, "user_left");
+                }
+
+                _logger.LogInformation("User {UserId} left group call {CallId}", userId.Value, callId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error leaving group call {CallId} for user {UserId}", callId, userId.Value);
+                await Clients.Caller.MessageFailed("Failed to leave group call");
+            }
+        }
+
+        public async Task EndGroupCall(string callId)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                await Clients.Caller.MessageFailed("User not authenticated");
+                return;
+            }
+
+            try
+            {
+                var result = await _groupCallService.EndGroupCallAsync(callId, userId.Value);
+
+                if (!result.IsSuccess)
+                {
+                    await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to end group call");
+                    return;
+                }
+
+                // Notify all call participants that call ended
+                await Clients.Group($"Call_{callId}").MessageFailed($"Group call {callId} ended");
+
+                _logger.LogInformation("Group call {CallId} ended by user {UserId}", callId, userId.Value);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ending group call {CallId} by user {UserId}", callId, userId.Value);
+                await Clients.Caller.MessageFailed("Failed to end group call");
+            }
+        }
+
+        public async Task ToggleGroupCallMedia(string callId, string mediaType, bool enabled)
+        {
+            var userId = GetUserId();
+            if (userId == null) return;
+
+            try
+            {
+                var request = new ToggleMediaRequest
+                {
+                    media_type = mediaType,
+                    enabled = enabled
+                };
+
+                var result = await _groupCallService.ToggleMediaAsync(callId, userId.Value, request);
+
+                if (!result.IsSuccess)
+                {
+                    await Clients.Caller.MessageFailed(result.ErrorMessage ?? "Failed to toggle media");
+                    return;
+                }
+
+                // Notify call participants about media toggle - using MessageFailed as placeholder
+                await Clients.GroupExcept($"Call_{callId}", Context.ConnectionId)
+                    .MessageFailed($"User {userId.Value} toggled {mediaType} to {enabled}");
+
+                _logger.LogInformation("User {UserId} toggled {MediaType} to {Enabled} in call {CallId}",
+                    userId.Value, mediaType, enabled, callId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error toggling media for user {UserId} in call {CallId}", userId.Value, callId);
+                await Clients.Caller.MessageFailed("Failed to toggle media");
+            }
+        }
+
+        // WebRTC signaling methods for group calls
+        public async Task SendGroupCallOffer(string callId, string targetUserId, string offerData)
+        {
+            var senderId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation("Group call offer from user {SenderId} to {TargetUserId} in call {CallId}", 
+                senderId, targetUserId, callId);
+
+            await Clients.User(targetUserId).MessageFailed($"Group call offer from {senderId}");
+        }
+
+        public async Task SendGroupCallAnswer(string callId, string targetUserId, string answerData)
+        {
+            var senderId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation("Group call answer from user {SenderId} to {TargetUserId} in call {CallId}", 
+                senderId, targetUserId, callId);
+
+            await Clients.User(targetUserId).MessageFailed($"Group call answer from {senderId}");
+        }
+
+        public async Task SendGroupIceCandidate(string callId, string targetUserId, string candidateData)
+        {
+            var senderId = Context.UserIdentifier ?? "Unknown";
+            _logger.LogInformation("Group ICE candidate from user {SenderId} to {TargetUserId} in call {CallId}", 
+                senderId, targetUserId, callId);
+
+            await Clients.User(targetUserId).MessageFailed($"Group ICE candidate from {senderId}");
+        }
+
         // --- HELPER METHODS ---
 
         private int? GetUserId()
@@ -224,10 +468,14 @@ namespace ChatServer.Presentation.SignalR.Hubs
 
                 // Join all user's groups automatically
                 var userGroups = await _groupRepo.GetUserGroupsAsync(userId.Value);
+                _logger.LogInformation("DEBUG: User {UserId} connecting to {GroupCount} groups", userId.Value, userGroups.Count);
+                
                 foreach (var group in userGroups)
                 {
                     await Groups.AddToGroupAsync(Context.ConnectionId, $"Group_{group.id}");
                     await _groupRepo.UpdateUserOnlineStatusAsync(group.id, userId.Value, true);
+
+                    _logger.LogInformation("DEBUG: User {UserId} joined SignalR group 'Group_{GroupId}'", userId.Value, group.id);
 
                     // Notify group members that user is online
                     await Clients.GroupExcept($"Group_{group.id}", Context.ConnectionId)

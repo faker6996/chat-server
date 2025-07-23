@@ -1,6 +1,8 @@
 // Controllers/BaseApiController.cs
 using ChatServer.Core.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ChatServer.Controllers
 {
@@ -8,6 +10,59 @@ namespace ChatServer.Controllers
     [Route("api/[controller]")]
     public abstract class BaseApiController : ControllerBase
     {
+        // ================== AUTHENTICATION HELPERS ==================
+        
+        /// <summary>
+        /// Lấy user ID từ JWT token trong claims hoặc cookie
+        /// </summary>
+        protected int? GetCurrentUserId()
+        {
+            // Thử lấy từ claims trước (nếu có JWT authentication middleware)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                             User.FindFirst("user_id")?.Value ?? 
+                             User.FindFirst("id")?.Value ??
+                             User.FindFirst("sub")?.Value;
+            
+            if (int.TryParse(userIdClaim, out int userId))
+            {
+                return userId;
+            }
+            
+            // Nếu không có trong claims, thử đọc từ cookie
+            if (Request.Cookies.TryGetValue("access_token", out string? token))
+            {
+                try
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    
+                    var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id" || x.Type == "sub")?.Value;
+                    if (int.TryParse(idClaim, out int cookieUserId))
+                    {
+                        return cookieUserId;
+                    }
+                }
+                catch
+                {
+                    // Token không valid, ignore
+                }
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Kiểm tra user đã authenticate chưa và trả về user ID
+        /// </summary>
+        protected int? GetAuthenticatedUserId()
+        {
+            if (!User.Identity?.IsAuthenticated ?? true)
+            {
+                return null;
+            }
+            
+            return GetCurrentUserId();
+        }
         // ================== CÁC PHƯƠNG THỨC CHO RESPONSE THÀNH CÔNG (HTTP 200) ==================
 
         /// <summary>

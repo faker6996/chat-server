@@ -1,11 +1,13 @@
 using System.Threading.Tasks;
+using ChatServer.Core.Models;
+using ChatServer.Infrastructure.Repositories.Base;
 
 namespace ChatServer.Infrastructure.Repositories.Messenger
 {
     /// <summary>
     /// Interface định nghĩa các phương thức cho kho lưu trữ người dùng.
     /// </summary>
-    public interface IUserRepo
+    public interface IUserRepo : IBaseRepository<User>
     {
         /// <summary>
         /// Cập nhật trạng thái online/offline và thời gian hoạt động cuối cùng của người dùng.

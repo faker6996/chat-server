@@ -38,4 +38,16 @@ public interface IChatClientNotifier
     
     // Group invite events
     Task GroupInviteLinkGeneratedAsync(int groupId, string inviteLink);
+    
+    // Group call events
+    Task GroupCallStartedAsync(int groupId, GroupCallResponse call);
+    Task GroupCallEndedAsync(int groupId, string callId, string reason);
+    Task GroupCallParticipantJoinedAsync(int groupId, string callId, CallParticipantResponse participant);
+    Task GroupCallParticipantLeftAsync(int groupId, string callId, int userId, string reason);
+    Task GroupCallMediaToggledAsync(int groupId, string callId, int userId, string mediaType, bool enabled);
+    
+    // WebRTC signaling events for group calls
+    Task ReceiveGroupCallOfferAsync(string callId, string fromUserId, string offerData);
+    Task ReceiveGroupCallAnswerAsync(string callId, string fromUserId, string answerData);
+    Task ReceiveGroupIceCandidateAsync(string callId, string fromUserId, string candidateData);
 }

@@ -1101,4 +1101,51 @@ docker run -p 5000:80 chat-server   # Run container
 ✅ **Member Presence** - Online/offline tracking trong groups  
 ✅ **Group Statistics** - Member counts, activity analytics
 
-**All features are production-ready với comprehensive API documentation, real-time SignalR events, và Clean Architecture implementation!**
+### **Group Video Call System** 📹 🆕
+
+✅ **Video Call Management API** - Start, join, leave, end group calls  
+✅ **Call State Management** - Active call detection và lifecycle management  
+✅ **Participant Management** - Real-time participant tracking với roles  
+✅ **Media Controls** - Audio/video toggle, connection quality tracking  
+✅ **JWT Authentication** - Token-based auth với cookie support  
+✅ **Real-time Signaling** - WebRTC signaling qua SignalR  
+✅ **Call History** - Group call history với participant details  
+✅ **Permission System** - Role-based call management (admin/moderator controls)
+
+#### **Group Call API Endpoints** 📡
+
+**Call Management:**
+- `POST /api/groupcalls/{groupId}/start` - Start new group call
+- `POST /api/groupcalls/{callId}/join` - Join existing call  
+- `DELETE /api/groupcalls/{callId}/leave` - Leave call
+- `DELETE /api/groupcalls/{callId}/end` - End call (admin/moderator only)
+
+**Call Information:**
+- `GET /api/groupcalls/{groupId}/active` - Get active call for group
+- `GET /api/groupcalls/{callId}/participants` - Get call participants
+- `GET /api/groupcalls/history/{groupId}` - Call history với pagination
+
+**Media Controls:**
+- `PUT /api/groupcalls/{callId}/media` - Toggle audio/video
+- `PUT /api/groupcalls/{callId}/connection-quality` - Update connection status
+
+#### **Call Features Chi Tiết** 🎯
+
+**Call Types:** Video calls và Audio-only calls  
+**Participant Limits:** Configurable max participants (default 10, max 50)  
+**Auto-join:** Call initiator automatically joins on start  
+**Media Management:** Real-time audio/video toggle với broadcast  
+**Connection Quality:** Excellent, Good, Poor, Disconnected tracking  
+**Call Persistence:** Active call state maintained across page reloads  
+**Group Integration:** Seamless integration với existing group system  
+**Permission Enforcement:** Only group members can start/join calls
+
+#### **Authentication & Security** 🔐
+
+**JWT Cookie Authentication:** Token extraction từ `access_token` cookie  
+**User Verification:** Automatic user ID extraction từ JWT claims  
+**Group Membership Validation:** Verify user belongs to group before call actions  
+**Role-based Permissions:** Admin/moderator controls cho ending calls  
+**API Response Format:** Consistent snake_case JSON responses
+
+**All group call features are production-ready với comprehensive API documentation, JWT authentication, real-time SignalR integration, và Clean Architecture implementation!**

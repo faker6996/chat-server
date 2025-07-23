@@ -89,7 +89,7 @@ public class MessageService : IMessageService
         var routingKey = request.message_type switch
         {
             MESSAGE_TYPE.PRIVATE => $"chat.private.{request.target_id}",
-            MESSAGE_TYPE.GROUP => $"chat.group.{request.target_id}",
+            MESSAGE_TYPE.GROUP => $"chat.group.{conversationId}",
             _ => "chat.public.all"
         };
 

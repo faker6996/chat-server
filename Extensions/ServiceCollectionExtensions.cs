@@ -1,8 +1,11 @@
 using ChatServer.Infrastructure.Services;
+using ChatServer.Infrastructure.Services.GroupCall;
 using ChatServer.Core.Configs;
 using ChatServer.Infrastructure.Repositories;
 using ChatServer.Infrastructure.Repositories.Attachment;
 using ChatServer.Infrastructure.Repositories.Group;
+using ChatServer.Infrastructure.Repositories.GroupCall;
+using ChatServer.Infrastructure.Repositories.CallParticipant;
 using ChatServer.Infrastructure.Repositories.Messenger;
 using ChatServer.Infrastructure.Repositories.Reaction;
 using ChatServer.Infrastructure.BackgroundServices;
@@ -32,6 +35,7 @@ namespace ChatServer.Extensions
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             services.AddScoped<IMessageService, MessageService>();
+            services.AddScoped<IGroupCallService, GroupCallService>();
             services.AddScoped<IChatClientNotifier, SignalRChatClientNotifier>();
             return services;
         }
@@ -44,6 +48,8 @@ namespace ChatServer.Extensions
             services.AddScoped<IMessagePublisher, MessagePublisher>();
             services.AddScoped<IReactionRepo, ReactionRepo>();
             services.AddScoped<IGroupRepository, GroupRepository>();
+            services.AddScoped<IGroupCallRepo, GroupCallRepo>();
+            services.AddScoped<ICallParticipantRepo, CallParticipantRepo>();
             return services;
         }
 

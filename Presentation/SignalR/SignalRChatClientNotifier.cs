@@ -201,4 +201,84 @@ public class SignalRChatClientNotifier : IChatClientNotifier
         var linkEvent = new { group_id = groupId, invite_link = inviteLink };
         await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupInviteLinkGenerated", linkEvent);
     }
+
+    // Group call events
+    public async Task GroupCallStartedAsync(int groupId, GroupCallResponse call)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallStarted event - GroupId: {GroupId}, CallId: {CallId}", 
+            groupId, call.id);
+
+        var callEvent = new { group_id = groupId, call };
+        
+        _logger.LogInformation("DEBUG: Sending GroupCallStarted to SignalR group 'Group_{GroupId}' with data: {CallEvent}", 
+            groupId, System.Text.Json.JsonSerializer.Serialize(callEvent));
+            
+        await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupCallStarted", callEvent);
+        
+        _logger.LogInformation("DEBUG: GroupCallStarted sent successfully to Group_{GroupId}", groupId);
+    }
+
+    public async Task GroupCallEndedAsync(int groupId, string callId, string reason)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallEnded event - GroupId: {GroupId}, CallId: {CallId}", 
+            groupId, callId);
+
+        var endEvent = new { group_id = groupId, call_id = callId, reason };
+        await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupCallEnded", endEvent);
+    }
+
+    public async Task GroupCallParticipantJoinedAsync(int groupId, string callId, CallParticipantResponse participant)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallParticipantJoined event - GroupId: {GroupId}, CallId: {CallId}, UserId: {UserId}", 
+            groupId, callId, participant.user_id);
+
+        var joinEvent = new { group_id = groupId, call_id = callId, participant };
+        await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupCallParticipantJoined", joinEvent);
+    }
+
+    public async Task GroupCallParticipantLeftAsync(int groupId, string callId, int userId, string reason)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallParticipantLeft event - GroupId: {GroupId}, CallId: {CallId}, UserId: {UserId}", 
+            groupId, callId, userId);
+
+        var leaveEvent = new { group_id = groupId, call_id = callId, user_id = userId, reason };
+        await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupCallParticipantLeft", leaveEvent);
+    }
+
+    public async Task GroupCallMediaToggledAsync(int groupId, string callId, int userId, string mediaType, bool enabled)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallMediaToggled event - GroupId: {GroupId}, CallId: {CallId}, UserId: {UserId}, MediaType: {MediaType}, Enabled: {Enabled}", 
+            groupId, callId, userId, mediaType, enabled);
+
+        var mediaEvent = new { group_id = groupId, call_id = callId, user_id = userId, media_type = mediaType, enabled };
+        await _hubContext.Clients.Group($"Group_{groupId}").SendAsync("GroupCallMediaToggled", mediaEvent);
+    }
+
+    // WebRTC signaling events for group calls
+    public async Task ReceiveGroupCallOfferAsync(string callId, string fromUserId, string offerData)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallOffer event - CallId: {CallId}, FromUserId: {FromUserId}", 
+            callId, fromUserId);
+
+        var offerEvent = new { call_id = callId, from_user_id = fromUserId, offer_data = offerData };
+        await _hubContext.Clients.Group($"Call_{callId}").SendAsync("ReceiveGroupCallOffer", offerEvent);
+    }
+
+    public async Task ReceiveGroupCallAnswerAsync(string callId, string fromUserId, string answerData)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupCallAnswer event - CallId: {CallId}, FromUserId: {FromUserId}", 
+            callId, fromUserId);
+
+        var answerEvent = new { call_id = callId, from_user_id = fromUserId, answer_data = answerData };
+        await _hubContext.Clients.Group($"Call_{callId}").SendAsync("ReceiveGroupCallAnswer", answerEvent);
+    }
+
+    public async Task ReceiveGroupIceCandidateAsync(string callId, string fromUserId, string candidateData)
+    {
+        _logger.LogInformation("SignalR: Broadcasting GroupIceCandidate event - CallId: {CallId}, FromUserId: {FromUserId}", 
+            callId, fromUserId);
+
+        var candidateEvent = new { call_id = callId, from_user_id = fromUserId, candidate_data = candidateData };
+        await _hubContext.Clients.Group($"Call_{callId}").SendAsync("ReceiveGroupIceCandidate", candidateEvent);
+    }
 }
