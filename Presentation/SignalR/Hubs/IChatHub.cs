@@ -31,5 +31,8 @@ namespace ChatServer.Presentation.SignalR.Hubs
         // --- Phương thức cho Group Chat ---
         Task UserJoinedGroup(int groupId, int userId);
         Task UserLeftGroup(int groupId, int userId);
+
+        // --- Phương thức cho Session Management ---
+        Task SessionInvalidated(object sessionData);
     }
 }

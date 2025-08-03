@@ -414,6 +414,29 @@ namespace ChatServer.Presentation.SignalR.Hubs
             }
         }
 
+        // Session invalidation notification
+        public async Task NotifySessionInvalidated(int userId, string reason, string message)
+        {
+            _logger.LogInformation("🔔 Hub NotifySessionInvalidated called for user {UserId} with reason: {Reason}, message: {Message}", 
+                userId, reason, message);
+
+            try
+            {
+                await Clients.User(userId.ToString()).SessionInvalidated(new {
+                    reason = reason,
+                    message = message,
+                    timestamp = DateTimeOffset.UtcNow
+                });
+
+                _logger.LogInformation("✅ SessionInvalidated event sent to user {UserId} via SignalR Hub", userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error sending SessionInvalidated event to user {UserId} in Hub", userId);
+                throw;
+            }
+        }
+
         // WebRTC signaling methods for group calls
         public async Task SendGroupCallOffer(string callId, string targetUserId, string offerData)
         {
