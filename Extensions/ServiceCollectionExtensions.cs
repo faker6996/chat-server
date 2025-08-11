@@ -28,7 +28,11 @@ namespace ChatServer.Extensions
     {
         public static IServiceCollection AddDatabaseServices(this IServiceCollection services, string connectionString)
         {
-            services.AddScoped<IDbConnection>(sp => new NpgsqlConnection(connectionString));
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            var dataSource = dataSourceBuilder.Build();
+            
+            services.AddSingleton(dataSource);
+            services.AddScoped<IDbConnection>(sp => sp.GetRequiredService<NpgsqlDataSource>().OpenConnection());
             return services;
         }
 
